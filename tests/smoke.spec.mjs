@@ -19,50 +19,34 @@ const PAGES = [
     { path: 'examples/voxel-showcase.html', hudSelector: '#hud', mustContain: ['voxel-showcase example', 'quality tier'] }
 ];
 
-async function checkPage(launchOpts, base, entry, t) {
-    // A fresh browser per page, not a shared one with multiple newPage()
-    // calls: under SwiftShader (software WebGL), reusing one browser across
-    // several WebGL-heavy pages reliably hung on the second navigation, both
-    // on a local Windows box and on GitHub's Linux runners. A short-lived
-    // browser per page costs a few extra seconds of launch overhead but
-    // sidesteps that class of flakiness entirely.
-    const browser = await puppeteer.launch(launchOpts);
-    try {
-        const page = await browser.newPage();
-        const errors = [];
-        page.on('pageerror', (e) => errors.push(String(e)));
-        page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+async function checkPage(page, errors, base, entry, t) {
+    errors.length = 0;
+    // SwiftShader (software WebGL, needed on GPU-less CI runners) is much
+    // slower than hardware rendering — give the first frame room to land.
+    await page.goto(base + entry.path, { waitUntil: 'networkidle0', timeout: 60000 });
+    await sleep(500); // let a few frames render
 
-        await page.setViewport({ width: 1280, height: 720 });
-        // SwiftShader (software WebGL, needed on GPU-less CI runners) is much
-        // slower than hardware rendering — give the first frame room to land.
-        await page.goto(base + entry.path, { waitUntil: 'networkidle0', timeout: 60000 });
-        await sleep(500); // let a few frames render
+    t.ok(entry.path + ': zero console errors', errors.length === 0, errors.join(' | '));
 
-        t.ok(entry.path + ': zero console errors', errors.length === 0, errors.join(' | '));
-
-        if (entry.hudSelector) {
-            const hudText = await page.$eval(entry.hudSelector, (el) => el.textContent).catch(() => '');
-            for (const needle of entry.mustContain) {
-                t.ok(entry.path + ': HUD reports "' + needle + '"', hudText.includes(needle),
-                    'hud=' + JSON.stringify(hudText));
-            }
+    if (entry.hudSelector) {
+        const hudText = await page.$eval(entry.hudSelector, (el) => el.textContent).catch(() => '');
+        for (const needle of entry.mustContain) {
+            t.ok(entry.path + ': HUD reports "' + needle + '"', hudText.includes(needle),
+                'hud=' + JSON.stringify(hudText));
         }
-
-        const renderCalls = await page.evaluate(() => {
-            const hook = window.__engineKit;
-            return hook && hook.renderer && hook.renderer.info && hook.renderer.info.render
-                ? hook.renderer.info.render.calls
-                : -1;
-        });
-        t.ok(entry.path + ': renderer actually drew frames', renderCalls > 0,
-            'renderer.info.render.calls=' + renderCalls);
-
-        const canvasOk = await page.evaluate(() => !!document.querySelector('canvas'));
-        t.ok(entry.path + ': canvas present', canvasOk);
-    } finally {
-        await browser.close();
     }
+
+    const renderCalls = await page.evaluate(() => {
+        const hook = window.__engineKit;
+        return hook && hook.renderer && hook.renderer.info && hook.renderer.info.render
+            ? hook.renderer.info.render.calls
+            : -1;
+    });
+    t.ok(entry.path + ': renderer actually drew frames', renderCalls > 0,
+        'renderer.info.render.calls=' + renderCalls);
+
+    const canvasOk = await page.evaluate(() => !!document.querySelector('canvas'));
+    t.ok(entry.path + ': canvas present', canvasOk);
 }
 
 export async function run(t) {
@@ -75,6 +59,7 @@ export async function run(t) {
     }
 
     const server = await startServer(PORT);
+    let browser;
     try {
         // GPU-less CI runners report GL_VENDOR/GL_RENDERER "Disabled" and
         // refuse WebGL under --use-gl=angle (no real GPU to back it) — use
@@ -85,21 +70,35 @@ export async function run(t) {
         const glArgs = process.env.CI
             ? ['--use-gl=swiftshader', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
             : ['--use-gl=angle'];
-        const launchOpts = {
+        browser = await puppeteer.launch({
             executablePath: exe,
             headless: 'new',
             args: [...glArgs, '--ignore-gpu-blocklist', '--no-sandbox', '--disable-dev-shm-usage']
-        };
+        });
+
+        // One browser, ONE page, reused for every navigation. Both a fresh
+        // browser per page and a shared browser with a fresh page (tab) per
+        // page reliably hung mid-run under SwiftShader (reproduced on a
+        // local Windows box and on GitHub's Linux runners) — creating a
+        // second browser context/tab appears to be the actual unstable
+        // operation, not navigation itself. page.goto() to a new URL on the
+        // same page/tab is the one pattern that held up.
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(String(e)));
+        page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+        await page.setViewport({ width: 1280, height: 720 });
 
         for (const entry of PAGES) {
             try {
-                await checkPage(launchOpts, server.url, entry, t);
+                await checkPage(page, errors, server.url, entry, t);
             } catch (e) {
                 t.ok(entry.path + ': loaded and checked without crashing', false,
                     String(e && e.message || e));
             }
         }
     } finally {
+        if (browser) await browser.close();
         await server.close();
     }
 }
