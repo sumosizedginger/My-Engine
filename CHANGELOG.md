@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.2.0] — Unreleased
+## [0.2.0] — 2026-07-13
 
 Professionalization pass: the kit went from "code that works" to a real
 public project — tests, CI, examples, docs, and a standalone identity.
@@ -14,7 +14,7 @@ public project — tests, CI, examples, docs, and a standalone identity.
   matches the classic X-signed cone bit-for-bit), and `settings.js`
   (storage-absent/throwing degradation, persistence, reset semantics), plus
   a browser smoke spec covering `index.html` and both examples.
-- GitHub Actions CI running the full suite on every push/PR to `main`.
+- GitHub Actions CI running the unit suite on every push/PR to `main`.
 - Two genre-neutral examples: `examples/topdown-8way.html` (top-down camera,
   8-way movement, melee arc, wall collision) and `examples/voxel-showcase.html`
   (six bespoke voxel builds, live quality-tier switching).
@@ -23,11 +23,19 @@ public project — tests, CI, examples, docs, and a standalone identity.
 - README screenshots ("See it" section) for the smoke test and both examples.
 - `package.json` identity fields (`repository`, `author`, `license`) and a
   standalone description no longer framed as an extraction of a specific game.
+- `.editorconfig`, `.gitattributes`, `CONTRIBUTING.md`.
 
 ### Changed
 - README rewritten to stand on its own: leads with what the kit *is*, closes
   with a "Built with this kit" section linking an example project instead of
   a "lifted out of" provenance framing.
+
+### Known limitations
+- CI runs the pure-node unit suite only (44 assertions, <1s). The browser
+  smoke test (`npm test`, full suite) needs a real GPU — GitHub's hosted
+  runners don't have one, and headless Chrome + SwiftShader software
+  rendering proved unreliable there across several attempts. Run `npm test`
+  locally before tagging a release; see CONTRIBUTING.md.
 
 ## [0.1.0] — Initial extraction
 
