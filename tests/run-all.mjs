@@ -3,7 +3,7 @@
 // Pass --unit-only (or `npm run test:unit`) to skip the browser smoke spec —
 // the pure-node specs run in well under 5s with no Chrome dependency.
 
-import { createSink, summarize } from './harness.mjs';
+import { createSink, summarize, writeStepSummary } from './harness.mjs';
 import { run as runCollision } from './collision.spec.mjs';
 import { run as runHitbox } from './hitbox.spec.mjs';
 import { run as runSettings } from './settings.spec.mjs';
@@ -32,6 +32,7 @@ async function main() {
         sinks.push(smoke);
     }
 
+    writeStepSummary(sinks);
     process.exit(summarize(sinks) ? 1 : 0);
 }
 

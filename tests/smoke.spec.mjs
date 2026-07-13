@@ -6,7 +6,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer-core';
-import { startServer, findChrome, sleep, createSink, summarize } from './harness.mjs';
+import { startServer, findChromeVerbose, sleep, createSink, summarize } from './harness.mjs';
 
 const PORT = Number(process.env.PORT) || 8765;
 
@@ -57,19 +57,27 @@ async function checkPage(browser, base, entry, t) {
 }
 
 export async function run(t) {
-    const exe = findChrome();
+    const { path: exe, candidates } = findChromeVerbose();
     if (!exe) {
         t.ok('Chrome/Edge available (set CHROME_PATH if not found)', false,
-            'no browser executable found');
+            'CHROME_PATH=' + JSON.stringify(process.env.CHROME_PATH || null)
+            + '; checked: ' + JSON.stringify(candidates));
         return;
     }
 
     const server = await startServer(PORT);
-    const browser = await puppeteer.launch({
-        executablePath: exe,
-        headless: 'new',
-        args: ['--use-gl=angle', '--ignore-gpu-blocklist', '--no-sandbox', '--disable-dev-shm-usage']
-    });
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            executablePath: exe,
+            headless: 'new',
+            args: ['--use-gl=angle', '--ignore-gpu-blocklist', '--no-sandbox', '--disable-dev-shm-usage']
+        });
+    } catch (e) {
+        t.ok('Chrome launches (executablePath=' + exe + ')', false, String(e && e.message || e));
+        await server.close();
+        return;
+    }
 
     try {
         for (const entry of PAGES) {

@@ -12,6 +12,12 @@ then build *your* game (shmup, top-down adventure, brawler, whatever) on top.
 
 This is a starting point, not a framework. Copy it, rename it, hack it.
 
+## See it
+
+| Smoke test (`index.html`) | Top-down example | Voxel showcase |
+|---|---|---|
+| [![smoke test](docs/media/smoke.png)](index.html) | [![top-down example](docs/media/topdown.png)](examples/topdown-8way.html) | [![voxel showcase](docs/media/showcase.png)](examples/voxel-showcase.html) |
+
 ## Boot it
 
 ```
@@ -132,6 +138,14 @@ off `npm run serve`) that prove the "genre-neutral" claim above isn't just talk:
   tree, turret) authored purely with `fillBox` / `fillEllipsoid` / `paint`,
   bloom picking out the glowing bits, quality tiers live-switchable on
   <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>. The shmup porting note's proof.
+
+## Documentation
+
+**[docs/API.md](docs/API.md)** is the full reference — every export in `src/`,
+with signatures, units, and the honest gotchas (a couple of modules reference
+texture assets the kit doesn't ship; API.md says exactly which). It also spells
+out the `world` contract: the one implicit coupling point worth knowing about
+before you wire a new game in.
 
 ## Porting notes (from the honest assessment)
 

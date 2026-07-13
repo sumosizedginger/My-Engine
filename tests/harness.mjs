@@ -27,6 +27,12 @@ export function startServer(port = 8765) {
 
 /** Locate a Chrome/Edge executable across env var + common Windows/Linux paths. */
 export function findChrome() {
+    return findChromeVerbose().path;
+}
+
+/** Same search as findChrome(), but also returns the candidate list tried —
+ * used to make CI failures self-diagnosing without needing log access. */
+export function findChromeVerbose() {
     const candidates = [
         process.env.CHROME_PATH,
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -41,9 +47,31 @@ export function findChrome() {
         '/usr/bin/chromium'
     ].filter(Boolean);
     for (const c of candidates) {
-        try { if (fs.existsSync(c)) return c; } catch (e) { /* ignore */ }
+        try { if (fs.existsSync(c)) return { path: c, candidates }; } catch (e) { /* ignore */ }
     }
-    return null;
+    return { path: null, candidates };
+}
+
+/** Append a markdown pass/fail summary to $GITHUB_STEP_SUMMARY when running in
+ * Actions, so a failure is diagnosable from the (publicly visible) run summary
+ * page without needing to sign in to view raw step logs. No-op elsewhere. */
+export function writeStepSummary(sinks, extraNotes = []) {
+    const file = process.env.GITHUB_STEP_SUMMARY;
+    if (!file) return;
+    const all = sinks.flatMap((s) => s.results.map((r) => ({ ...r, suite: s.label })));
+    const failed = all.filter((r) => !r.pass);
+    let md = '## Test results: ' + (all.length - failed.length) + '/' + all.length + ' passed\n\n';
+    if (failed.length) {
+        md += '### Failures\n\n| Suite | Assertion | Detail |\n|---|---|---|\n';
+        for (const f of failed) {
+            md += '| ' + f.suite + ' | ' + f.name + ' | ' + String(f.detail).replace(/\|/g, '\\|') + ' |\n';
+        }
+        md += '\n';
+    }
+    if (extraNotes.length) {
+        md += '### Notes\n\n' + extraNotes.map((n) => '- ' + n).join('\n') + '\n';
+    }
+    try { fs.appendFileSync(file, md); } catch (e) { /* best-effort only */ }
 }
 
 /** A tiny assertion sink shared across specs. */
