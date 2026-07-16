@@ -130,6 +130,15 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 
 - W3: `src/game/world/keys.js` — per-dungeon `{smallKeys, bossKey, opened[], visited[], taken[], mapPickup}` persisted under `sovereignProgress.dungeons[id]` (read-modify-write per G13); `makeKeyStore` write-through cache adapter (HUD polls per frame); `addKeyPickup` persistent key pickups (never respawn); createDungeon defaults to the persistent store; HUD shows small-key count + BOSS KEY inside dungeons; `dungeons: {}` added to DEFAULT_SOVEREIGN so New Game clears it. `tests/game/keys.spec.mjs` (24 asserts) + reload-persistence asserts in world-e2e. Suite **581/581**.
 
+## Session 4 (cont.) — Phase W3–W8
+
+- W3: `world/keys.js` persistent per-dungeon lock state (see above). **581/581**
+- W4: `overworld/overworld.js` + `screens.js` — screens as rooms with wide edge doors on the same 64 grid; entrance arches (E to enter, position saved), dungeon `type:'exit'` doors return to the saved screen/pos; visited tracking; reload restore. 2×2 dev grid; `'overworld'` in DEV_LEVELS until C1. `game.loadLevel` exposed for cross-level travel. **591/591**
+- W5: mirror travel — per-screen `crust:`/`abyss:` layout variants; monolith interact → `sovereignProgress.overworld.state` flip + 1.5 s mood ramp + overworld rebuild at exact position; ring-search un-trap nudge; free swap (M) for `mirror_free`/post-Proxy via `level.onMoodToggle` claim in index.js. **602/602**
+- W6: Tab map (`ui/map-screen.js`, canvas overlay) fed by `level.mapData()`: overworld visited grid (entrance ▼ / monolith ◆) and dungeon room graph (door links colored by lock state, boss ☠, `mapPickup` reveals all); modal drain; Esc closes; Tab drained in menus. **612/612**
+- W7: `world/blockers.js` — grapple_gap / wedge_crack / boot_ledge / caster_dark, each a build-time map edit + runtime; wired into room defs + overworld screens; TECTONIC_WEDGE gains shatter (cracks filter on attacker id, persist as `blocker:<id>`); ledge is hop-OVER (2-D collision means solids block at every height — G5). Dev gauntlet room + r1c1 placements; behavior e2e'd item-gated both ways. **640/640**
+- W8: save `version: 2` + one-shot v1 migration (fills `dungeons`/`overworld`, wipes nothing, persists on first load); migration spec. World state is write-through at mutation time, so the 10 s autosave needs no extension. **651/651**
+
 ## Known remaining polish (not blockers)
 - Character smear still ±X-biased (engine side-view heritage)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)

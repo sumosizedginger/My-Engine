@@ -3,7 +3,7 @@
 import { getProgress, setProgress } from '../../engine/settings.js';
 
 const DEFAULT_SOVEREIGN = () => ({
-    version: 1,
+    version: 2,
     currentBeat: 'beat-01-crypt',
     unlockedBeats: ['beat-01-crypt', 'sandbox-combat'],
     inventory: null,
@@ -13,14 +13,28 @@ const DEFAULT_SOVEREIGN = () => ({
     deaths: 0,
     bossesDefeated: [],
     mood: 'crust',
-    // Phase W: per-dungeon key/door/visited state (W3) — present in the
-    // default so New Game resets it.
+    // Phase W (v2): world state — present in the default so New Game resets it
     dungeons: {},
+    overworld: { pos: null, state: 'crust', visited: [] },
 });
+
+/** W8: one-shot v1 → v2 migration — fill the Phase W fields, never wipe. */
+function migrateToV2(s) {
+    return {
+        ...s,
+        version: 2,
+        dungeons: s.dungeons || {},
+        overworld: { pos: null, state: 'crust', visited: [], ...(s.overworld || {}) },
+    };
+}
 
 export function loadSovereignProgress() {
     const p = getProgress() || {};
-    const s = p.sovereignProgress || {};
+    let s = p.sovereignProgress || {};
+    if (Object.keys(s).length && (s.version || 1) < 2) {
+        s = migrateToV2(s);
+        setProgress({ sovereignProgress: { ...DEFAULT_SOVEREIGN(), ...s } });
+    }
     return { ...DEFAULT_SOVEREIGN(), ...s };
 }
 
