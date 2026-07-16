@@ -17,21 +17,21 @@ import { loadBeat13 } from './beat-13-gumoi.js';
 import { loadBeat14 } from './beat-14-leviathan.js';
 
 export const LEVELS = [
-    { id: 'sandbox-combat', name: 'Combat Sandbox', load: loadSandboxCombat, mood: 'crust' },
-    { id: 'beat-01-crypt', name: '01 Crypt Breach', load: loadBeat01, mood: 'crust' },
-    { id: 'beat-02-spindle', name: '02 Eastern Spindle', load: loadBeat02, mood: 'crust' },
-    { id: 'beat-03-sink', name: '03 Duval Sink', load: loadBeat03, mood: 'crust' },
-    { id: 'beat-04-sky', name: '04 Sky Monument', load: loadBeat04, mood: 'crust' },
-    { id: 'beat-05-citadel', name: '05 Citadel of the Proxy', load: loadBeat05, mood: 'crust' },
-    { id: 'beat-06-quarry', name: '06 Bleeding Quarry', load: loadBeat06, mood: 'abyss' },
-    { id: 'beat-07-sluice', name: '07 Sluice of Tears', load: loadBeat07, mood: 'abyss' },
-    { id: 'beat-08-bone', name: '08 Bone Forest', load: loadBeat08, mood: 'abyss' },
-    { id: 'beat-09-town', name: '09 Ruined Town', load: loadBeat09, mood: 'abyss' },
-    { id: 'beat-10-cryo', name: '10 Cryo Vault', load: loadBeat10, mood: 'abyss' },
-    { id: 'beat-11-mire', name: '11 Rot Mire', load: loadBeat11, mood: 'abyss' },
-    { id: 'beat-12-pyre', name: '12 Pyre Peak', load: loadBeat12, mood: 'abyss' },
-    { id: 'beat-13-gumoi', name: '13 GUMOI Tower', load: loadBeat13, mood: 'abyss' },
-    { id: 'beat-14-leviathan', name: '14 Leviathan Core', load: loadBeat14, mood: 'abyss' },
+    { id: 'sandbox-combat', name: 'Combat Sandbox', load: loadSandboxCombat, mood: 'crust', bossId: null },
+    { id: 'beat-01-crypt', name: '01 Crypt Breach', load: loadBeat01, mood: 'crust', bossId: 'crypt_warden' },
+    { id: 'beat-02-spindle', name: '02 Eastern Spindle', load: loadBeat02, mood: 'crust', bossId: 'tri_compiler' },
+    { id: 'beat-03-sink', name: '03 Duval Sink', load: loadBeat03, mood: 'crust', bossId: 'sand_spur' },
+    { id: 'beat-04-sky', name: '04 Sky Monument', load: loadBeat04, mood: 'crust', bossId: 'kinetic_core' },
+    { id: 'beat-05-citadel', name: '05 Citadel of the Proxy', load: loadBeat05, mood: 'crust', bossId: 'proxy' },
+    { id: 'beat-06-quarry', name: '06 Bleeding Quarry', load: loadBeat06, mood: 'abyss', bossId: 'obsidian_arachnid' },
+    { id: 'beat-07-sluice', name: '07 Sluice of Tears', load: loadBeat07, mood: 'abyss', bossId: 'hydroid_cloud' },
+    { id: 'beat-08-bone', name: '08 Bone Forest', load: loadBeat08, mood: 'abyss', bossId: 'skeletal_mantis' },
+    { id: 'beat-09-town', name: '09 Ruined Town', load: loadBeat09, mood: 'abyss', bossId: 'phantasm' },
+    { id: 'beat-10-cryo', name: '10 Cryo Vault', load: loadBeat10, mood: 'abyss', bossId: 'frost_and_fuel' },
+    { id: 'beat-11-mire', name: '11 Rot Mire', load: loadBeat11, mood: 'abyss', bossId: 'sludge_golem' },
+    { id: 'beat-12-pyre', name: '12 Pyre Peak', load: loadBeat12, mood: 'abyss', bossId: 'magma_wyrm' },
+    { id: 'beat-13-gumoi', name: '13 GUMOI Tower', load: loadBeat13, mood: 'abyss', bossId: 'gumoi_witness' },
+    { id: 'beat-14-leviathan', name: '14 Leviathan Core', load: loadBeat14, mood: 'abyss', bossId: 'leviathan' },
 ];
 
 export function getLevel(id) {

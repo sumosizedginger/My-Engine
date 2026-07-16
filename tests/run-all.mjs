@@ -21,6 +21,7 @@ import { run as runBosses } from './game/bosses.spec.mjs';
 import { run as runMusicBed } from './game/music-bed.spec.mjs';
 import { run as runStory } from './game/story.spec.mjs';
 import { run as runJuice } from './game/juice.spec.mjs';
+import { run as runMenu } from './game/menu.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -56,6 +57,7 @@ async function main() {
     runNamed('music-bed', runMusicBed);
     runNamed('story', runStory);
     runNamed('juice', runJuice);
+    runNamed('menu', runMenu);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

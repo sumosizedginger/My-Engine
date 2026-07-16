@@ -180,6 +180,13 @@ export class HUD {
     }
 
     update(state) {
+        // Title screen hides gameplay chrome (B3) — content still renders so
+        // the panel is fresh the instant it reappears (and inspectable).
+        const chrome = state.hidden ? 'none' : '';
+        if (this.el.style.display !== chrome) {
+            this.el.style.display = chrome;
+            this.helpEl.style.display = chrome;
+        }
         const hp = state.hp ?? 0;
         const max = state.maxHp ?? 6;
         const filled = Math.max(0, Math.ceil(hp));
@@ -194,12 +201,13 @@ export class HUD {
             `Weapon: ${state.weapon || '—'}\n` +
             `Keys: ${keys}/3 · Shards: ${state.scarShards || 0} · Mood: ${state.mood || 'crust'}` +
             (bosses != null ? ` · Bosses: ${bosses}/14` : '') +
+            (state.showTimer ? `\nTime: ${Math.floor((state.playTime || 0) / 60)}:${String(Math.floor((state.playTime || 0) % 60)).padStart(2, '0')}` : '') +
             (state.paused ? `\n<span style="color:#ff7a90">PAUSED</span>` : '') +
             (state.banner ? `\n\n<span style="color:#a8b4c8">${state.banner}</span>` : '');
 
         // Boss bar
         const boss = state.boss;
-        if (boss && boss.hp != null && boss.maxHp && boss.state?.current !== 'DEAD' && !boss.defeated) {
+        if (!state.hidden && boss && boss.hp != null && boss.maxHp && boss.state?.current !== 'DEAD' && !boss.defeated) {
             this.bossEl.style.display = 'block';
             this._bossName.textContent = (boss.bossName || 'BOSS').toUpperCase();
             const frac = Math.max(0, Math.min(1, boss.hp / boss.maxHp));

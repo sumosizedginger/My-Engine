@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer, composer, onResize, outputPass, vignettePass } from '../engine/renderer.js';
 import { initLights } from '../engine/lights.js';
-import { initQuality } from '../engine/quality.js';
+import { initQuality, setQuality, getQuality } from '../engine/quality.js';
 import { ParticleSystem } from '../engine/particles.js';
 import { CollisionWorld } from '../engine/collision.js';
 import { updateSmears } from '../engine/smear.js';
@@ -22,7 +22,8 @@ import { MoodController } from './fx/mood-controller.js';
 import { createFlickerPass, updateFlickerPass } from './fx/flicker-shader-pass.js';
 import { createWrapPass, updateWrapPass } from './render/wrap-shader-pass.js';
 import { LEVELS, getLevel, nextLevelId, prevLevelId } from './levels/registry.js';
-import { loadSovereignProgress, saveSovereignProgress, unlockBeat, recordBossDefeat } from './kernel/progress.js';
+import { loadSovereignProgress, saveSovereignProgress, unlockBeat, recordBossDefeat, resetSovereignProgress } from './kernel/progress.js';
+import { MenuOverlay } from './ui/menu.js';
 import { Inventory } from './kernel/inventory.js';
 import { getWeapon } from './combat/weapons.js';
 
@@ -119,6 +120,7 @@ const game = {
     level: null,
     levelId: 'beat-01-crypt',
     paused: false,
+    atTitle: false,
     playTime: 0,
     unlockAndSave(id) {
         unlockBeat(id);
@@ -205,14 +207,154 @@ function loadLevel(id) {
     console.info('[Sovereign Scar] loaded', meta.id, meta.name);
 }
 
+// ── Menu system (B1/B2/B3) ────────────────────────────────────────────────
+let showTimer = !!bootSettings.showTimer;
+
+function persistSetting(key, value) {
+    const cur = loadSovereignProgress().settings || {};
+    saveSovereignProgress({ settings: { ...cur, [key]: value } });
+}
+
+function startNewGame() {
+    const cur = loadSovereignProgress();
+    saveSovereignProgress({
+        lastRun: {
+            currentBeat: cur.currentBeat,
+            bossesDefeated: cur.bossesDefeated || [],
+            playTime: cur.playTime || 0,
+            deaths: cur.deaths || 0,
+            archivedAt: Date.now(),
+        },
+    });
+    resetSovereignProgress(); // merge keeps settings + lastRun
+    player.inventory = new Inventory();
+    player.health.max = 6;
+    player.health.fullRestore();
+    game.playTime = 0;
+    menu.close();
+    game.atTitle = false;
+    game.paused = false;
+    loadLevel('beat-01-crypt');
+}
+
+function goToTitle() {
+    saveSovereignProgress({
+        inventory: player.inventory.toJSON(),
+        hp: player.health.hp,
+        playTime: game.playTime,
+    });
+    game.paused = true;
+    game.atTitle = true;
+    menu.openTitle();
+}
+
+const menu = new MenuOverlay({
+    ctx: {
+        levels: () => LEVELS,
+        progress: () => loadSovereignProgress(),
+        beatName: (id) => getLevel(id).name,
+        hasProgress: () => {
+            const p = loadSovereignProgress();
+            return (p.bossesDefeated || []).length > 0
+                || p.currentBeat !== 'beat-01-crypt'
+                || (p.playTime || 0) > 60
+                || (p.deaths || 0) > 0;
+        },
+        settings: () => ({
+            masterVol: volState.master,
+            musicVol: volState.music,
+            sfxVol: volState.sfx,
+            quality: getQuality(),
+            reduceShake: juice.reduceShake,
+            reduceFlash: juice.reduceFlash,
+            showTimer,
+        }),
+    },
+    onEvent: (ev) => {
+        if (ev.type === 'set') {
+            switch (ev.id) {
+                case 'masterVol':
+                    volState.master = ev.value;
+                    volState.fade = 1; volState.fading = false;
+                    applyVolumes(); persistAudioSettings();
+                    break;
+                case 'musicVol':
+                    volState.music = ev.value;
+                    applyVolumes(); persistAudioSettings();
+                    break;
+                case 'sfxVol':
+                    volState.sfx = ev.value;
+                    applyVolumes(); persistAudioSettings();
+                    break;
+                case 'quality':
+                    try { setQuality(ev.value); } catch (_) {}
+                    persistSetting('quality', ev.value);
+                    break;
+                case 'reduceShake':
+                    juice.reduceShake = ev.value;
+                    persistSetting('reduceShake', ev.value);
+                    break;
+                case 'reduceFlash':
+                    juice.reduceFlash = ev.value;
+                    persistSetting('reduceFlash', ev.value);
+                    break;
+                case 'showTimer':
+                    showTimer = ev.value;
+                    persistSetting('showTimer', ev.value);
+                    break;
+            }
+            return;
+        }
+        switch (ev.id) {
+            case 'resume':
+                menu.close();
+                game.paused = false;
+                break;
+            case 'continue':
+                menu.close();
+                game.atTitle = false;
+                game.paused = false;
+                break;
+            case 'newgame':
+                menu.state.push('confirmNew');
+                menu.render();
+                break;
+            case 'confirmNewYes':
+                startNewGame();
+                break;
+            case 'back':
+                menu.back();
+                break;
+            case 'beat':
+                menu.close();
+                game.atTitle = false;
+                game.paused = false;
+                loadLevel(ev.arg);
+                break;
+            case 'quitTitle':
+                goToTitle();
+                break;
+        }
+    },
+});
+
 // Restore progress
 const progress = loadSovereignProgress();
 if (progress.inventory) {
     player.inventory = Inventory.fromJSON(progress.inventory);
 }
 if (progress.hp) player.health.hp = progress.hp;
+if (progress.playTime) game.playTime = progress.playTime;
+if (bootSettings.quality) {
+    try { setQuality(bootSettings.quality); } catch (_) {}
+}
 const startId = progress.currentBeat || 'beat-01-crypt';
 loadLevel(startId);
+
+// Boot lands at the title screen over the live scene (B3)
+game.atTitle = true;
+game.paused = true;
+menu.openTitle();
 
 // Audio unlock on first gesture
 function unlockAudio() {
@@ -234,6 +376,7 @@ const clock = new THREE.Clock();
 let deathTimer = 0;
 let deathShown = false;
 let saveAcc = 0;
+let titleDrift = 0;
 
 function frame() {
     requestAnimationFrame(frame);
@@ -260,8 +403,37 @@ function frame() {
     }
 
     if (input.consumePause()) {
-        game.paused = !game.paused;
-        hud.toast(game.paused ? 'Paused' : 'Resumed', 900);
+        if (menu.isOpen) {
+            menu.back(); // pops a submenu; resumes from pause root; inert on title root
+        } else {
+            game.paused = true;
+            menu.openPause();
+        }
+    }
+
+    // While a menu is up, gameplay inputs must not leak through
+    if (menu.isOpen) {
+        input.consumeAttack();
+        input.consumeDash();
+        input.consumeInteract();
+        input.consumeWeaponCycle();
+        input.consumeMoodToggle();
+        input.consumeGrapple();
+        input.consumeStoryAdvance();
+        input.consumeLevelNext();
+        input.consumeLevelPrev();
+        input.consumeAnyKey();
+    }
+
+    // Title attract: slow orbit around the player while the world is frozen
+    if (game.atTitle) {
+        titleDrift += dt;
+        const c = player.root.position;
+        camRig.update(dt * 0.5, {
+            x: c.x + Math.sin(titleDrift * 0.1) * 5,
+            y: c.y,
+            z: c.z + Math.cos(titleDrift * 0.1) * 5,
+        });
     }
 
     if (input.consumeLevelNext()) {
@@ -405,6 +577,9 @@ function frame() {
     const wpn = getWeapon(player.inventory.activeWeapon);
     const prog = loadSovereignProgress();
     hud.update({
+        hidden: game.atTitle,
+        showTimer,
+        playTime: game.playTime,
         hp: player.health.hp,
         maxHp: player.health.max,
         weapon: wpn.name || player.inventory.activeWeapon,
