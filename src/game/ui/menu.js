@@ -144,25 +144,27 @@ export class MenuOverlay {
         document.body.appendChild(this.el);
 
         this._onKey = (e) => {
-            if (!this.isOpen) return;
-            let handled = true;
-            switch (e.code) {
-                case 'ArrowUp': case 'KeyW': this.state.move(-1); break;
-                case 'ArrowDown': case 'KeyS': this.state.move(1); break;
-                case 'ArrowLeft': case 'KeyA': this._emit(this.state.adjust(-1)); break;
-                case 'ArrowRight': case 'KeyD': this._emit(this.state.adjust(1)); break;
-                case 'Enter': case 'NumpadEnter': case 'Space':
-                    this._emit(this.state.activate());
-                    break;
-                case 'Backspace': this.back(); break;
-                default: handled = false;
-            }
-            if (handled) {
-                e.preventDefault();
-                this.render();
-            }
+            if (this.handleCode(e.code)) e.preventDefault();
         };
         window.addEventListener('keydown', this._onKey);
+    }
+
+    /** Handle one nav code (keyboard or synthesized gamepad). Returns handled. */
+    handleCode(code) {
+        if (!this.isOpen) return false;
+        switch (code) {
+            case 'ArrowUp': case 'KeyW': this.state.move(-1); break;
+            case 'ArrowDown': case 'KeyS': this.state.move(1); break;
+            case 'ArrowLeft': case 'KeyA': this._emit(this.state.adjust(-1)); break;
+            case 'ArrowRight': case 'KeyD': this._emit(this.state.adjust(1)); break;
+            case 'Enter': case 'NumpadEnter': case 'Space':
+                this._emit(this.state.activate());
+                break;
+            case 'Backspace': this.back(); break;
+            default: return false;
+        }
+        this.render();
+        return true;
     }
 
     get isOpen() {

@@ -231,7 +231,10 @@ export class Player {
             const mv = input.moveVector();
             // Face from movement if no recent mouse aim preference
             if (mv.x || mv.z) this.state.setFacing(mv.x, mv.z);
-            if (input.mouse && camera && renderer) {
+            if (input.padAim) {
+                // Right stick has aim priority over mouse (B5)
+                this.state.setFacing(input.padAim.x, input.padAim.z);
+            } else if (input.mouse && camera && renderer) {
                 this.aimAtScreen(input.mouse.x, input.mouse.y, camera, renderer);
             }
 

@@ -33,11 +33,10 @@ export function loadBeat14(ctx) {
     attachBoss(level, levi, {
         toast: 'Leviathan Core terminated — the Scar is quiet',
         onDefeat(game) {
-            game.hud.story?.queue([
-                { speaker: 'PREDECESSOR', text: 'The OS falls silent. Memory keys burn like stars.', hold: 4 },
-                { speaker: 'SYSTEM', text: 'SOVEREIGN SCAR — ending state reached. You are free to wander.', hold: 4 },
-            ]);
             game.unlockAndSave?.('sandbox-combat');
+            // B4: collapse cascade → whiteout → ending sequence
+            level._collapse = 0.0001;
+            level._collapseBurst = 0;
         },
     });
 
@@ -45,7 +44,31 @@ export function loadBeat14(ctx) {
         update(dt, game) {
             if (levi.state.current !== 'DEAD') {
                 level.wrap = levi.wrapAmount;
-            } else if (!level._won) {
+            } else if (level._collapse != null && !level._endingFired) {
+                // Collapse: escalating shard bursts + wrap intensity ramp
+                level._collapse += dt;
+                level.wrap = Math.min(1, 0.35 + level._collapse * 0.22);
+                level._collapseBurst -= dt;
+                if (level._collapseBurst <= 0 && game.particles?.spawnShard) {
+                    level._collapseBurst = Math.max(0.06, 0.25 - level._collapse * 0.05);
+                    const bp = levi.root?.position || { x: 0, y: 2.5, z: 0 };
+                    const n = 4 + Math.floor(level._collapse * 3);
+                    for (let i = 0; i < n; i++) {
+                        const a = Math.random() * Math.PI * 2;
+                        const r = Math.random() * (1 + level._collapse);
+                        game.particles.spawnShard(
+                            { x: bp.x + Math.cos(a) * r, y: bp.y + Math.random() * 2, z: bp.z + Math.sin(a) * r },
+                            Math.random() < 0.5 ? 0xd4a84b : 0x60ffe0, // kintsugi gold + neon
+                            { x: bp.x, y: bp.y, z: bp.z }
+                        );
+                    }
+                }
+                if (level._collapse >= 3.2) {
+                    level._endingFired = true;
+                    level.wrap = 0;
+                    game.startEnding?.();
+                }
+            } else if (!level._collapse && !level._won && levi.state.current === 'DEAD') {
                 level._won = true;
                 level.wrap = 0;
             }

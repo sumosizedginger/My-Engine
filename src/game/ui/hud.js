@@ -187,6 +187,20 @@ export class HUD {
             this.el.style.display = chrome;
             this.helpEl.style.display = chrome;
         }
+        // Swap control legend when a gamepad becomes active (B5)
+        if (state.pad && !this._padLegend) {
+            this._padLegend = true;
+            this.helpEl.textContent =
+                'Left stick move · Right stick aim · A attack\n' +
+                'B dash · X interact · Y grapple · LB/RB weapon\n' +
+                'D-up mood · Select mute · Start pause';
+        } else if (!state.pad && this._padLegend) {
+            this._padLegend = false;
+            this.helpEl.textContent =
+                'WASD move · Mouse aim · LMB/Space attack\n' +
+                'Shift dash · Q/R weapon · E interact · G grapple\n' +
+                'M mood · N mute · [ ] change beat · P pause · Enter skip story';
+        }
         const hp = state.hp ?? 0;
         const max = state.maxHp ?? 6;
         const filled = Math.max(0, Math.ceil(hp));

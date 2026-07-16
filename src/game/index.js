@@ -24,6 +24,7 @@ import { createWrapPass, updateWrapPass } from './render/wrap-shader-pass.js';
 import { LEVELS, getLevel, nextLevelId, prevLevelId } from './levels/registry.js';
 import { loadSovereignProgress, saveSovereignProgress, unlockBeat, recordBossDefeat, resetSovereignProgress } from './kernel/progress.js';
 import { MenuOverlay } from './ui/menu.js';
+import { EndingSequence } from './ui/credits.js';
 import { Inventory } from './kernel/inventory.js';
 import { getWeapon } from './combat/weapons.js';
 
@@ -338,6 +339,28 @@ const menu = new MenuOverlay({
     },
 });
 
+// ── Ending sequence (B4) ──────────────────────────────────────────────────
+const ending = new EndingSequence({
+    onDone: () => {
+        goToTitle();
+    },
+});
+game.startEnding = () => {
+    if (ending.isActive) return;
+    const p = saveSovereignProgress({
+        campaignComplete: true,
+        inventory: player.inventory.toJSON(),
+        playTime: game.playTime,
+    });
+    ending.start({
+        playTime: game.playTime,
+        deaths: p.deaths || 0,
+        bosses: (p.bossesDefeated || []).length,
+        shards: player.inventory.scarShards,
+        keys: player.inventory.memoryKeyCount,
+    });
+};
+
 // Restore progress
 const progress = loadSovereignProgress();
 if (progress.inventory) {
@@ -386,6 +409,19 @@ function frame() {
     // Juice ticks on RAW dt so hitstop can end itself and flashes restore
     juice.update(dt);
     const sdt = dt * juice.timeScale;
+
+    // Gamepad (B5): poll once per frame; d-pad/A/B nav feeds menus + ending
+    input.pollGamepad();
+    const menuCodes = input.consumeMenuCodes();
+    if (menuCodes.length) {
+        for (const code of menuCodes) {
+            if (ending.isActive) {
+                if (code === 'Enter') ending.advance();
+            } else if (menu.isOpen) {
+                menu.handleCode(code);
+            }
+        }
+    }
 
     // E1: boot audio fade-in
     if (volState.fading) {
@@ -464,10 +500,14 @@ function frame() {
         hud.toast(`Mood: ${mood.mood}`);
     }
     if (input.consumeStoryAdvance()) {
-        hud.story?.advance?.();
+        if (ending.isActive) ending.advance();
+        else hud.story?.advance?.();
     }
 
-    if (!game.paused) {
+    // Ending sequence runs on raw dt and freezes gameplay while active
+    ending.update(dt);
+
+    if (!game.paused && !ending.isActive) {
         game.playTime += dt;
         mood.update(sdt);
         // Story timer advanced once from HUD.update({dt}) — do not double-tick here.
@@ -578,6 +618,7 @@ function frame() {
     const prog = loadSovereignProgress();
     hud.update({
         hidden: game.atTitle,
+        pad: input.padActive,
         showTimer,
         playTime: game.playTime,
         hp: player.health.hp,
@@ -610,6 +651,8 @@ window.__sovereignScar = {
     renderer,
     composer,
     scene,
+    menu,
+    ending,
     save() {
         return saveSovereignProgress({
             currentBeat: game.levelId,

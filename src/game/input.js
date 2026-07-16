@@ -17,7 +17,15 @@ export class Input {
         this._muteToggle = false;
         this._anyKey = false;
 
+        // Gamepad state (B5)
+        this.padActive = false;          // true once a pad has been used
+        this.padMove = { x: 0, z: 0 };   // left stick (deadzoned, analog)
+        this.padAim = null;              // right stick facing, or null
+        this._prevButtons = [];
+        this._menuCodes = [];            // synthesized nav codes for menus
+
         this._onKeyDown = (e) => {
+            this.padActive = false; // keyboard use reverts the pad legend
             this.keys.add(e.code);
             if (e.code === 'Space' || e.code === 'KeyJ') this._attackPressed = true;
             if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyK') this._dashPressed = true;
@@ -61,14 +69,72 @@ export class Input {
         this._dom = dom;
     }
 
-    /** WASD / arrows as XZ wish vector (unnormalized). */
+    /** WASD / arrows as XZ wish vector (unnormalized); falls back to pad stick. */
     moveVector() {
         let x = 0, z = 0;
         if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) z -= 1;
         if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) z += 1;
         if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) x -= 1;
         if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) x += 1;
+        if (!x && !z && (this.padMove.x || this.padMove.z)) {
+            x = this.padMove.x;
+            z = this.padMove.z;
+        }
         return { x, z };
+    }
+
+    /**
+     * Poll the Gamepad API once per frame (standard mapping).
+     * A=attack · B=dash · X=interact · Y=grapple · LB/RB=weapon ·
+     * Start=pause · Select=mute · D-up=mood · D-pad+A/B feed menu nav codes.
+     * @param {Array} [padsOverride] test injection point
+     */
+    pollGamepad(padsOverride) {
+        const pads = padsOverride
+            || (typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : null);
+        const gp = pads && [...pads].find((p) => p && p.connected !== false && p.buttons?.length);
+        if (!gp) {
+            this.padMove.x = 0;
+            this.padMove.z = 0;
+            this.padAim = null;
+            this._prevButtons = [];
+            return;
+        }
+        const prev = this._prevButtons;
+        const b = gp.buttons.map((x) => !!(x && x.pressed));
+        const pressed = (i) => b[i] && !prev[i];
+        const dz = (v) => (Math.abs(v || 0) > 0.18 ? v : 0);
+
+        this.padMove.x = dz(gp.axes?.[0]);
+        this.padMove.z = dz(gp.axes?.[1]);
+        const ax = dz(gp.axes?.[2]);
+        const az = dz(gp.axes?.[3]);
+        this.padAim = Math.hypot(ax, az) > 0.3 ? { x: ax, z: az } : null;
+
+        if (pressed(0)) { this._attackPressed = true; this._menuCodes.push('Enter'); }
+        if (pressed(1)) { this._dashPressed = true; this._menuCodes.push('Backspace'); }
+        if (pressed(2)) this._interactPressed = true;
+        if (pressed(3)) this._grapple = true;
+        if (pressed(4)) this._weaponCycle = -1;
+        if (pressed(5)) this._weaponCycle = 1;
+        if (pressed(8)) this._muteToggle = true;
+        if (pressed(9)) this._pause = true;
+        if (pressed(12)) { this._moodToggle = true; this._menuCodes.push('ArrowUp'); }
+        if (pressed(13)) this._menuCodes.push('ArrowDown');
+        if (pressed(14)) this._menuCodes.push('ArrowLeft');
+        if (pressed(15)) this._menuCodes.push('ArrowRight');
+
+        if (b.some((v, i) => v && !prev[i])) this._anyKey = true;
+        if (b.some(Boolean) || this.padMove.x || this.padMove.z) this.padActive = true;
+        this._prevButtons = b;
+    }
+
+    /** Drain synthesized menu-navigation codes (pad d-pad / A / B). */
+    consumeMenuCodes() {
+        if (!this._menuCodes.length) return [];
+        const v = this._menuCodes;
+        this._menuCodes = [];
+        return v;
     }
 
     consumeAttack() {

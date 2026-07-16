@@ -161,6 +161,30 @@ export async function run(t) {
         await page.keyboard.press('Enter');
         await sleep(100);
         t.ok('story advance key handled', true);
+
+        // B4: leviathan defeat → collapse → ending sequence + campaignComplete
+        const endingRes = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            s.loadLevel('beat-14-leviathan');
+            await new Promise((r) => setTimeout(r, 150));
+            const boss = s.game.level.boss;
+            boss.hp = 0;
+            boss.onDeath?.();
+            // drive the 3.2s collapse manually (loop may be paused at title)
+            for (let i = 0; i < 75; i++) s.game.level.update(0.05, s.game);
+            for (let i = 0; i < 30; i++) s.ending.update(0.05);
+            let prog = {};
+            try {
+                prog = JSON.parse(window.localStorage.getItem('vsbeu.progress') || '{}').sovereignProgress || {};
+            } catch (_) {}
+            return {
+                endingPhase: s.ending.phase,
+                campaignComplete: prog.campaignComplete === true,
+            };
+        });
+        t.ok('leviathan defeat reaches ending sequence',
+            endingRes.endingPhase !== 'idle', `phase=${endingRes.endingPhase}`);
+        t.ok('campaignComplete persisted', endingRes.campaignComplete);
     } finally {
         try { await browser?.close(); } catch (_) {}
         await server.close();
