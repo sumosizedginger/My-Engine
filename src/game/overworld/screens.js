@@ -63,6 +63,18 @@ export const TEST_SCREENS = {
             build(map, h) {
                 h.fillBox(map, -2, 2, 1, 1, -2, 2, CRUST_COLORS.goldLeaf);
             },
+            // W7: overworld placements of the gated blockers
+            blockers: [
+                {
+                    type: 'grapple_gap', id: 'ow-gap',
+                    rect: { x0: 8, x1: 12, z0: -6, z1: -2 },
+                    anchor: { x: 15, z: -4 },
+                    edge: { x: 6, z: -4 },
+                },
+                { type: 'boot_ledge', id: 'ow-ledge', rect: { x0: -12, x1: -8, z0: 8, z1: 9 } },
+                { type: 'wedge_crack', id: 'ow-crack', at: { x: -14, z: -10 }, w: 2, h: 2 },
+                { type: 'caster_dark', id: 'ow-dark', rect: { x0: 12, x1: 18, z0: 10, z1: 16 } },
+            ],
         },
     },
 };

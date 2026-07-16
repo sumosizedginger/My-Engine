@@ -358,12 +358,141 @@ export async function run(t) {
         t.ok('map has entrance + monolith icons', mapRes.ow.hasEntranceIcon && mapRes.ow.hasMonolith);
         t.ok('map overlay opens', mapRes.opened);
         t.ok('map overlay closes', mapRes.closed);
-        t.ok('dungeon map data', mapRes.dungeon.kind === 'dungeon' && mapRes.dungeon.rooms === 3,
+        t.ok('dungeon map data', mapRes.dungeon.kind === 'dungeon' && mapRes.dungeon.rooms === 4,
             JSON.stringify(mapRes.dungeon));
         t.ok('dungeon map remembers visited rooms', mapRes.dungeon.visitedRooms >= 2,
             `v=${mapRes.dungeon.visitedRooms}`);
         t.ok('dungeon map shows opened door', mapRes.dungeon.openedDoor === true);
         t.ok('arena levels have no map', mapRes.arenaHasMap === false);
+
+        // ── W7: item-gating blockers in the dungeon gauntlet room ──
+        const blk = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            const out = {};
+            s.game.paused = true;
+            s.loadLevel('w-test-dungeon');
+            await new Promise((r) => setTimeout(r, 150));
+            let level = s.game.level;
+            const player = s.player;
+            const tick = (n) => { for (let i = 0; i < n; i++) s.game.level.update(0.05, s.game); };
+            // Full tick including player physics/grapple
+            // No camera/renderer: mouse-aim would overwrite the scripted facing
+            const tickAll = (n) => {
+                for (let i = 0; i < n; i++) {
+                    player.update(0.05, s.game.input, s.game.level.enemies,
+                        s.game.level.destructibles, null, null);
+                    s.game.level.update(0.05, s.game);
+                }
+            };
+            level.enterRoom('gauntlet', s.game);
+            const O = { x: -64, z: 0 }; // gauntlet world origin
+
+            // chasm carved: no floor voxel inside, rim intact
+            out.chasmCarved = !level.getVoxelAt(O.x, 0.5, O.z - 3)
+                && level.getVoxelAt(O.x, 0.5, O.z - 6);
+
+            // 1) no grapple item: falling in = respawn at edge + 1 damage
+            player.health.fullRestore();
+            player.rig.position.set(O.x, 1.0, O.z - 3); // inside the chasm, sinking
+            tick(2);
+            const p1 = player.root.position;
+            out.fallCaught = Math.hypot(p1.x - O.x, p1.z - (O.z - 6)) < 1 && player.health.hp === 5;
+
+            // aiming at the anchor without the item: toast, no grapple
+            player.rig.position.set(O.x, 1.95, O.z - 5.5);
+            player.state.setFacing(0, 1); // south, toward the anchor at (0,0)
+            s.game.input._grapple = true;
+            tick(1);
+            out.noItemNoGrapple = !player.grapple.active;
+
+            // 2) with the grapple: pull across
+            player.inventory.grantItem('magnetic_grapple');
+            s.game.input._grapple = true;
+            tick(1);
+            out.grappleStarts = player.grapple.active === true;
+            tickAll(30);
+            out.crossed = player.root.position.z > O.z - 2;
+
+            // 3) boot_ledge: dash into it bootless → blocked by the solid
+            player.rig.position.set(O.x, 1.95, O.z + 2.9);
+            player.state.setFacing(0, 1);
+            player.dashCd = 0;
+            player.tryDash();
+            tickAll(8);
+            out.bootlessBlocked = player.root.position.z < O.z + 4;
+
+            // with the boot: hop over
+            player.inventory.grantItem('phase_boot');
+            player.rig.position.set(O.x, 1.95, O.z + 2.9);
+            player.state.setFacing(0, 1);
+            player.dashCd = 0;
+            player.tryDash();
+            tickAll(10);
+            out.bootHopped = player.root.position.z > O.z + 5;
+
+            // 4) wedge_crack (vault): wrong weapon refuses, wedge shatters
+            level.enterRoom('vault', s.game);
+            const V = { x: -64, z: -64 };
+            player.rig.position.set(V.x - 3, 1.95, V.z - 4);
+            player.state.setFacing(-1, 0);
+            player.inventory.addWeapon('heavy_mallet'); // has shatter, wrong id
+            player.inventory.setWeapon('heavy_mallet');
+            player.attackCd = 0;
+            player.tryAttack([], s.game.level.destructibles);
+            out.crackSurvivesMallet = !level.keyStore.isOpen('blocker:td-crack');
+            player.inventory.addWeapon('tectonic_wedge');
+            player.inventory.setWeapon('tectonic_wedge');
+            player.attackCd = 0;
+            player.tryAttack([], s.game.level.destructibles);
+            out.crackBrokenByWedge = level.keyStore.isOpen('blocker:td-crack');
+
+            // 5) caster_dark: shroud lifts only with the Light Caster equipped
+            const shroud = s.scene.children.find((c) => c.isMesh
+                && c.geometry?.type === 'PlaneGeometry' && Math.abs(c.position.y - 2.4) < 0.01);
+            out.shroudExists = !!shroud;
+            player.rig.position.set(V.x + 3, 1.95, V.z + 3);
+            tick(10);
+            out.shroudDarkWithoutCaster = shroud ? shroud.material.opacity > 0.5 : false;
+            player.inventory.addWeapon('light_caster');
+            player.inventory.setWeapon('light_caster');
+            tick(30);
+            out.shroudLiftsWithCaster = shroud ? shroud.material.opacity < 0.25 : false;
+
+            return out;
+        });
+        t.ok('chasm carved in gauntlet', blk.chasmCarved);
+        t.ok('chasm fall → edge respawn + 1 damage', blk.fallCaught);
+        t.ok('grapple gated on item', blk.noItemNoGrapple);
+        t.ok('grapple starts with item', blk.grappleStarts);
+        t.ok('grapple crosses the gap', blk.crossed);
+        t.ok('bootless dash blocked by ledge', blk.bootlessBlocked);
+        t.ok('phase boot hops the ledge', blk.bootHopped);
+        t.ok('mallet cannot break wedge crack', blk.crackSurvivesMallet);
+        t.ok('tectonic wedge breaks the crack (persisted)', blk.crackBrokenByWedge);
+        t.ok('caster shroud exists', blk.shroudExists);
+        t.ok('shroud dark without caster', blk.shroudDarkWithoutCaster);
+        t.ok('shroud lifts with light caster', blk.shroudLiftsWithCaster);
+
+        // Overworld placements present (same runtime code; presence check)
+        const owBlk = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            s.loadLevel('overworld');
+            await new Promise((r) => setTimeout(r, 150));
+            const level = s.game.level;
+            level.enterRoom('r1c1', s.game);
+            const O = { x: 192, z: 192 };
+            // The anchor post is its own solid: probe the collision world
+            const probe = s.collisionWorld.resolveMove(O.x + 14, O.z - 3.5, O.x + 15.5, O.z - 3.5, 0.4);
+            return {
+                chasm: !level.getVoxelAt(O.x + 10, 0.5, O.z - 4)
+                    && level.getVoxelAt(O.x + 6, 0.5, O.z - 4),
+                anchorPost: probe.x < O.x + 15.2,
+                ledge: level.getVoxelAt(O.x - 10, 1.5, O.z + 8),
+            };
+        });
+        t.ok('overworld chasm carved + anchor post', owBlk.chasm && owBlk.anchorPost,
+            JSON.stringify(owBlk));
+        t.ok('overworld ledge stamped', owBlk.ledge);
 
         t.ok('no fatal pageerrors', errors.filter((e) => !/AudioContext|favicon/i.test(e)).length === 0,
             errors.slice(0, 5).join(' | '));

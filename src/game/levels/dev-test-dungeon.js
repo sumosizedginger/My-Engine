@@ -51,7 +51,15 @@ export const TEST_DUNGEON_DEF = {
             half: 6,
             wallH: 4,
             spawn: { x: 0, z: 0 },
-            doors: [{ to: 'hall', side: 'E', at: 0, type: 'locked' }],
+            doors: [
+                { to: 'hall', side: 'E', at: 0, type: 'locked' },
+                { to: 'gauntlet', side: 'S', at: 0, type: 'open' },
+            ],
+            // W7: crack + shroud in the vault
+            blockers: [
+                { type: 'wedge_crack', id: 'td-crack', at: { x: -4, z: -4 }, w: 2, h: 2 },
+                { type: 'caster_dark', id: 'td-dark', rect: { x0: 1, x1: 5, z0: 2, z1: 5 } },
+            ],
             onBake(level, origin) {
                 level.addPickup({ x: origin.x, y: 1.2, z: origin.z - 2 }, {
                     color: 0xffd060,
@@ -62,6 +70,26 @@ export const TEST_DUNGEON_DEF = {
                     },
                 });
             },
+        },
+        gauntlet: {
+            grid: [-1, 0],
+            half: 10,
+            wallH: 4,
+            spawn: { x: 0, z: -7 },
+            doors: [{ to: 'vault', side: 'N', at: 0, type: 'open' }],
+            // W7: full-width chasm (grapple) then a 2-high ledge (boot hop)
+            blockers: [
+                {
+                    type: 'grapple_gap', id: 'td-gap',
+                    rect: { x0: -9, x1: 9, z0: -4, z1: -2 },
+                    anchor: { x: 0, z: 0 },
+                    edge: { x: 0, z: -6 },
+                },
+                {
+                    type: 'boot_ledge', id: 'td-ledge',
+                    rect: { x0: -9, x1: 9, z0: 4, z1: 4 },
+                },
+            ],
         },
     },
 };

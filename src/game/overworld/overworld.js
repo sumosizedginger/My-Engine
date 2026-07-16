@@ -69,6 +69,7 @@ export function createOverworld(ctx, screensDef, opts = {}) {
                 if (variant?.build) variant.build(map, h);
             },
             enemies: s.enemies || [],
+            blockers: s.blockers || [], // W7
         };
     }
 

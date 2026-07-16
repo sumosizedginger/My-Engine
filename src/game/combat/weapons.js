@@ -36,6 +36,9 @@ export const TECTONIC_WEDGE = arcMove(2.2, 70, 1.4, {
     knockback: 4.5,
     smearColor: 0xffd060,
     heavy: true,
+    // W7: the wedge splits rock — wedge_crack blockers filter on attacker id
+    shatter: true,
+    shatterRadius: 2,
 });
 
 export const HEAVY_MALLET = arcMove(1.6, 90, 1.5, {

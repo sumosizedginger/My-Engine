@@ -16,6 +16,7 @@ import { CRUST_COLORS, ABYSS_COLORS, MOOD_PRESETS } from '../assets/palettes.js'
 import { Enemy, DummyTarget } from '../enemy.js';
 import { sfx } from '../../audio/synth.js';
 import { makeKeyStore } from './keys.js';
+import { applyBlockerToMap, createBlockerRuntime } from './blockers.js';
 
 export const ROOM_STRIDE = 64;
 export const DOOR_WIDTH = 2;
@@ -225,13 +226,18 @@ export function createDungeon(ctx, def, opts = {}) {
             room.floorColor || floorColor);
         buildPerimeterWithDoors(map, room, room.wallColor || wallColor);
         if (room.build) room.build(map, buildHelpers(room));
+        for (const b of room.blockers || []) applyBlockerToMap(map, b); // W7
 
         const built = meshAndCollide(map, scene, collisionWorld, {
             origin,
             solidPrefix: `${def.id}:${roomId}`,
         });
 
-        const rec = { built, plugs: new Map(), enemies: [], room };
+        const rec = { built, plugs: new Map(), enemies: [], room, blockers: [] };
+        for (const b of room.blockers || []) {
+            const rt = createBlockerRuntime(ctx, api, b, origin);
+            if (rt) rec.blockers.push(rt);
+        }
         for (const door of room.doors || []) {
             if (door.type === 'locked' || door.type === 'boss') {
                 const plug = bakePlug(roomId, room, door, origin);
@@ -258,6 +264,7 @@ export function createDungeon(ctx, def, opts = {}) {
         const rec = baked.get(roomId);
         if (!rec) return;
         rec.built.dispose();
+        for (const rt of rec.blockers || []) { try { rt.dispose(); } catch (_) {} }
         for (const plug of rec.plugs.values()) plug.dispose();
         for (const e of rec.enemies) {
             const i = enemies.indexOf(e);
@@ -412,6 +419,7 @@ export function createDungeon(ctx, def, opts = {}) {
     }
 
     function update(dt, game) {
+        api._game = game; // blockers/toasts need a game ref outside ticks
         if (transition) {
             transition.t += dt;
             const u = Math.min(1, transition.t / transition.dur);
@@ -430,6 +438,9 @@ export function createDungeon(ctx, def, opts = {}) {
         }
 
         for (const s of systems) if (s.update) s.update(dt, game);
+        for (const rec of baked.values()) {
+            for (const rt of rec.blockers || []) rt.update(dt, game);
+        }
         for (const e of enemies) {
             if (e.managedBySystem) continue;
             if (e.update) e.update(dt, game.player);

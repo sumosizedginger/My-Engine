@@ -94,5 +94,5 @@ export function run(t) {
     // The shipping test-dungeon def validates
     const rt = validateDungeonDef(TEST_DUNGEON_DEF);
     t.ok('test dungeon def valid', rt.ok, rt.reasons.join('; '));
-    t.ok('test dungeon rooms reachable', rt.reachable.length === 3);
+    t.ok('test dungeon rooms reachable', rt.reachable.length === 4, String(rt.reachable.length));
 }
