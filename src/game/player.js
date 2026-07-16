@@ -5,7 +5,7 @@ import { buildTorso, buildHead, buildArm, buildLeg, buildGlowEyes, scaleProfile,
 import { buildVoxelGeo } from '../voxel/core.js';
 import { S } from '../voxel/palette.js';
 import { makeFacing } from '../combat/facing.js';
-import { spawnSmear } from '../engine/smear.js';
+import { ArcSmear } from './fx/arc-smear.js';
 import { sfx } from '../audio/synth.js';
 import { vsfx } from './fx/vsfx.js';
 import { HERO_PALETTE } from './assets/palettes.js';
@@ -87,6 +87,7 @@ export class Player {
         this.dashCd = 0;
         this.dashTimer = 0;
         this.grapple = new GrappleController();
+        this.arcSmear = new ArcSmear(scene); // C8: true 8-way swing arcs
         this.frictionName = 'default';
         this._stepAcc = 0;
         this.spawnPoint = { x: 0, y: 1.2, z: 0 };
@@ -163,13 +164,11 @@ export class Player {
 
         this.attackCd = weapon.cooldown || 0.3;
         vsfx.slap();
-        const faceSign = (this.state.facingVec.x >= 0 ? 1 : -1);
-        spawnSmear({
+        this.arcSmear.spawn({
             position: this.rig.position,
-            facing: faceSign,
+            facingVec: this.state.facingVec,
             radius: weapon.range || 1.8,
             color: weapon.smearColor || 0x7fe0ff,
-            plane: 'forward',
         });
 
         const hits = combatSweep(this, enemies, weapon);
@@ -203,18 +202,18 @@ export class Player {
         this.dashCd = ownsBoot ? boot.cooldown : boot.cooldown * 1.2;
         this.health.iFrames = Math.max(this.health.iFrames, dur + 0.05);
         sfx.dash();
-        spawnSmear({
+        this.arcSmear.spawn({
             position: this.rig.position,
-            facing: fv.x >= 0 ? 1 : -1,
+            facingVec: fv,
             radius: ownsBoot ? 2 : 1.2,
             color: boot.smearColor,
-            plane: 'forward',
         });
         return true;
     }
 
     update(dt, input, enemies, destructibles, camera, renderer) {
         this.health.update(dt);
+        this.arcSmear.update(dt);
         if (this.attackCd > 0) this.attackCd -= dt;
         if (this.dashCd > 0) this.dashCd -= dt;
 
@@ -287,6 +286,7 @@ export class Player {
     }
 
     dispose() {
+        this.arcSmear.dispose();
         if (this.rig.parent) this.rig.parent.remove(this.rig);
     }
 }

@@ -26,6 +26,7 @@ import { loadSovereignProgress, saveSovereignProgress, unlockBeat, recordBossDef
 import { MenuOverlay } from './ui/menu.js';
 import { EndingSequence } from './ui/credits.js';
 import { Inventory } from './kernel/inventory.js';
+import { bossHeartMax } from './kernel/health.js';
 import { getWeapon } from './combat/weapons.js';
 
 // ── Boot ──────────────────────────────────────────────────────────────────
@@ -128,8 +129,15 @@ const game = {
         hud.toast(`Unlocked: ${id}`);
     },
     recordBoss(id) {
-        recordBossDefeat(id);
+        const p = recordBossDefeat(id);
         sfx.fanfare?.();
+        // C2: heart cap grows every 3rd boss
+        const target = bossHeartMax((p.bossesDefeated || []).length);
+        if (target > player.health.max) {
+            player.health.setMax(target);
+            saveSovereignProgress({ maxHp: player.health.max });
+            hud.toast(`Heart gained — construct integrity ${player.health.max}`, 3000);
+        }
     },
     activeBoss: null,
 };
@@ -366,7 +374,8 @@ const progress = loadSovereignProgress();
 if (progress.inventory) {
     player.inventory = Inventory.fromJSON(progress.inventory);
 }
-if (progress.hp) player.health.hp = progress.hp;
+if (progress.maxHp) player.health.setMax(progress.maxHp);
+if (progress.hp) player.health.hp = Math.min(progress.hp, player.health.max);
 if (progress.playTime) game.playTime = progress.playTime;
 if (bootSettings.quality) {
     try { setQuality(bootSettings.quality); } catch (_) {}
