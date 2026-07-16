@@ -716,6 +716,9 @@ function frame() {
         weapon: wpn.name || player.inventory.activeWeapon,
         memoryKeys: player.inventory.memoryKeyCount,
         scarShards: player.inventory.scarShards,
+        // W3: small-key count while inside a room-graph dungeon
+        smallKeys: game.level?.keyStore ? game.level.keyStore.smallKeys() : null,
+        hasBossKey: game.level?.keyStore ? game.level.keyStore.hasBossKey() : false,
         mood: mood.mood,
         beatId: game.levelId,
         beatName: game.level?.name || getLevel(game.levelId).name,

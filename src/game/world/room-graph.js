@@ -15,6 +15,7 @@ import { stampMap } from '../assets/props.js';
 import { CRUST_COLORS, ABYSS_COLORS, MOOD_PRESETS } from '../assets/palettes.js';
 import { Enemy, DummyTarget } from '../enemy.js';
 import { sfx } from '../../audio/synth.js';
+import { makeKeyStore } from './keys.js';
 
 export const ROOM_STRIDE = 64;
 export const DOOR_WIDTH = 2;
@@ -171,19 +172,9 @@ export function createDungeon(ctx, def, opts = {}) {
     const wallColor = def.wallColor
         || (def.mood === 'abyss' ? ABYSS_COLORS.abyssWall : CRUST_COLORS.wall);
 
-    // Session-local lock store (replaced by the persistent one in W3).
-    const localOpened = new Set();
-    let localSmallKeys = 0;
-    let localBossKey = false;
-    const keyStore = opts.keyStore || {
-        isOpen: (dk) => localOpened.has(dk),
-        open: (dk) => localOpened.add(dk),
-        trySpendSmallKey: () => (localSmallKeys > 0 ? (localSmallKeys--, true) : false),
-        grantSmallKey: () => { localSmallKeys += 1; },
-        hasBossKey: () => localBossKey,
-        grantBossKey: () => { localBossKey = true; },
-        smallKeys: () => localSmallKeys,
-    };
+    // W3: persistent per-dungeon lock state by default (opts.keyStore is a
+    // test seam).
+    const keyStore = opts.keyStore || makeKeyStore(def.id);
 
     const baked = new Map(); // roomId → { built, plugs: Map(dk→built), enemies, disposers }
     const systems = [];
@@ -299,6 +290,7 @@ export function createDungeon(ctx, def, opts = {}) {
             if (otherId === bossRoomId && bossSpawned) continue;
             if (gridDistance(def.rooms[otherId], room) >= 2) disposeRoom(otherId);
         }
+        keyStore.markVisited?.(roomId); // W6 map data
         if (api.onRoomEnter) api.onRoomEnter(roomId, game);
         if (room.onEnter && game) room.onEnter(game, room);
     }

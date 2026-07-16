@@ -13,6 +13,9 @@ const DEFAULT_SOVEREIGN = () => ({
     deaths: 0,
     bossesDefeated: [],
     mood: 'crust',
+    // Phase W: per-dungeon key/door/visited state (W3) — present in the
+    // default so New Game resets it.
+    dungeons: {},
 });
 
 export function loadSovereignProgress() {

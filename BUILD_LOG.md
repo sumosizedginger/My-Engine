@@ -128,6 +128,8 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 - W2: `CameraRig.setBounds` — look-at clamp with fov/aspect-derived margins, midpoint resolution for small rooms, lerped look-at (transitions pan instead of snapping); frame loop feeds `level.cameraBounds`.
 - Visual-sanity hardening: double-sample max with 600 ms settle (first frames after a load can read dark — beat-06 was bimodal 27/44); Obsidian Arachnid albedo lifted from near-black. 3× report runs stable, all levels in band. Suite **554/554**.
 
+- W3: `src/game/world/keys.js` — per-dungeon `{smallKeys, bossKey, opened[], visited[], taken[], mapPickup}` persisted under `sovereignProgress.dungeons[id]` (read-modify-write per G13); `makeKeyStore` write-through cache adapter (HUD polls per frame); `addKeyPickup` persistent key pickups (never respawn); createDungeon defaults to the persistent store; HUD shows small-key count + BOSS KEY inside dungeons; `dungeons: {}` added to DEFAULT_SOVEREIGN so New Game clears it. `tests/game/keys.spec.mjs` (24 asserts) + reload-persistence asserts in world-e2e. Suite **581/581**.
+
 ## Known remaining polish (not blockers)
 - Character smear still ±X-biased (engine side-view heritage)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)

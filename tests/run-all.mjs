@@ -25,6 +25,7 @@ import { run as runMenu } from './game/menu.spec.mjs';
 import { run as runGamepad } from './game/gamepad.spec.mjs';
 import { run as runUpgrades } from './game/upgrades.spec.mjs';
 import { run as runWorldGraph } from './game/world-graph.spec.mjs';
+import { run as runKeys } from './game/keys.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -64,6 +65,7 @@ async function main() {
     runNamed('gamepad', runGamepad);
     runNamed('upgrades', runUpgrades);
     runNamed('world-graph', runWorldGraph);
+    runNamed('keys', runKeys);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

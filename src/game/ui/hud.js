@@ -224,6 +224,7 @@ export class HUD {
             `HP ${hearts} (${Number.isInteger(Number(hp)) ? hp : Number(hp).toFixed(1)}/${max})\n` +
             `Weapon: ${state.weapon || '—'}\n` +
             `Keys: ${keys}/3 · Shards: ${state.scarShards || 0} · Mood: ${state.mood || 'crust'}` +
+            (state.smallKeys != null ? `\n<span style="color:#ffd060">Small keys: ${state.smallKeys}${state.hasBossKey ? ' · BOSS KEY' : ''}</span>` : '') +
             (bosses != null ? ` · Bosses: ${bosses}/14` : '') +
             (state.showTimer ? `\nTime: ${Math.floor((state.playTime || 0) / 60)}:${String(Math.floor((state.playTime || 0) % 60)).padStart(2, '0')}` : '') +
             (state.paused ? `\n<span style="color:#ff7a90">PAUSED</span>` : '') +

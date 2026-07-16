@@ -124,6 +124,40 @@ export async function run(t) {
         t.ok('far room disposed (≤2 baked)', res.afterW.baked.length <= 2, res.afterW.baked.join(','));
         t.ok('opened door stays open (round-trip)', res.roundTrip.room === 'hall', res.roundTrip.room);
 
+        // W3: persistence — hard reload; the opened door and spent key survive
+        await page.goto(server.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForFunction(() => !!(window.__sovereignScar && window.__sovereignScar.player), {
+            timeout: 25000,
+        });
+        const persist = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            s.game.atTitle = false;
+            s.game.paused = true;
+            s.menu.close();
+            s.game.paused = true;
+            s.loadLevel('w-test-dungeon');
+            await new Promise((r) => setTimeout(r, 150));
+            const level = s.game.level;
+            const tick = (n) => { for (let i = 0; i < n; i++) level.update(0.05, s.game); };
+            const out = { keys: level.keyStore.smallKeys() };
+            // Key pickup must NOT respawn: stand on its old spot, tick
+            s.player.rig.position.set(4, 1.95, -64);
+            level.enterRoom('hall', s.game);
+            tick(2);
+            out.keysAfterRevisit = level.keyStore.smallKeys();
+            // The vault door is still open: walk straight through
+            s.player.rig.position.set(-9.4, 1.95, -64);
+            tick(1);
+            tick(10);
+            out.room = level.currentRoomId();
+            s.game.paused = false;
+            return out;
+        });
+        t.ok('reload: spent key stays spent', persist.keys === 0, `keys=${persist.keys}`);
+        t.ok('reload: taken pickup does not respawn', persist.keysAfterRevisit === 0,
+            `keys=${persist.keysAfterRevisit}`);
+        t.ok('reload: opened door stays open', persist.room === 'vault', persist.room);
+
         t.ok('no fatal pageerrors', errors.filter((e) => !/AudioContext|favicon/i.test(e)).length === 0,
             errors.slice(0, 5).join(' | '));
     } finally {

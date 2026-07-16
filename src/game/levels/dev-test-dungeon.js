@@ -2,6 +2,7 @@
 // Exercises: open-door transition (W1/W2), locked door + key + boss door (W3).
 
 import { createDungeon } from '../world/room-graph.js';
+import { addKeyPickup } from '../world/keys.js';
 import { CRUST_COLORS } from '../assets/palettes.js';
 
 export const TEST_DUNGEON_DEF = {
@@ -61,15 +62,7 @@ export const TEST_DUNGEON_DEF = {
 
 export function loadTestDungeon(ctx) {
     const level = createDungeon(ctx, TEST_DUNGEON_DEF);
-    // W1 test affordance: the hall contains one small key pickup.
-    const hallOrigin = { x: 0, z: -64 };
-    level.addPickup({ x: hallOrigin.x + 4, y: 1.2, z: hallOrigin.z }, {
-        color: 0xffd060,
-        label: 'Small key',
-        onPickup(game) {
-            level.keyStore.grantSmallKey();
-            game.hud?.toast?.('Small key acquired');
-        },
-    });
+    // W3: persistent small-key pickup in the hall (never respawns once taken)
+    addKeyPickup(level, TEST_DUNGEON_DEF.id, 'hall-key', { x: 4, y: 1.2, z: -64 }, 'small');
     return level;
 }
