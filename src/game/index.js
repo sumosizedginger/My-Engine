@@ -143,6 +143,7 @@ const game = {
     paused: false,
     atTitle: false,
     playTime: 0,
+    loadLevel, // W4: levels can trigger cross-level travel (dungeon ⇄ overworld)
     unlockAndSave(id) {
         unlockBeat(id);
         hud.toast(`Unlocked: ${id}`);

@@ -106,6 +106,30 @@ export function makeKeyStore(dungeonId) {
     };
 }
 
+// ── Overworld state (W4/W5) ────────────────────────────────────────────────
+// sovereignProgress.overworld = { pos: {screen, x, z}, state: 'crust'|'abyss',
+// visited: [screenId] }
+
+const EMPTY_OVERWORLD = () => ({ pos: null, state: 'crust', visited: [] });
+
+export function getOverworldState() {
+    const o = loadSovereignProgress().overworld || {};
+    return { ...EMPTY_OVERWORLD(), ...o };
+}
+
+export function patchOverworld(patch) {
+    const cur = getOverworldState();
+    const next = { ...cur, ...patch };
+    saveSovereignProgress({ overworld: next });
+    return next;
+}
+
+export function markScreenVisited(screenId) {
+    const cur = getOverworldState();
+    if (cur.visited.includes(screenId)) return cur;
+    return patchOverworld({ visited: [...cur.visited, screenId] });
+}
+
 /**
  * Persistent key pickup: skipped entirely if already taken; granting marks
  * it taken so it never respawns. type: 'small' | 'boss'.

@@ -14,6 +14,9 @@ export const TEST_DUNGEON_DEF = {
     keys: [
         { room: 'hall', x: 4, z: 0, type: 'small' },
     ],
+    onExit(game) {
+        game.loadLevel?.('overworld');
+    },
     rooms: {
         entry: {
             grid: [0, 0],
@@ -24,7 +27,10 @@ export const TEST_DUNGEON_DEF = {
                 h.fillBox(map, -2, 2, 1, 1, -2, -2, h.CRUST_COLORS.slateDark);
             },
             enemies: [{ x: -3, z: -1, kind: 'sentinel', hp: 2 }],
-            doors: [{ to: 'hall', side: 'N', at: 0, type: 'open' }],
+            doors: [
+                { to: 'hall', side: 'N', at: 0, type: 'open' },
+                { to: '_world', side: 'S', at: 0, type: 'exit' },
+            ],
         },
         hall: {
             grid: [0, -1],

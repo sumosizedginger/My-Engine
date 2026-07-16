@@ -16,6 +16,8 @@ import { loadBeat12 } from './beat-12-pyre.js';
 import { loadBeat13 } from './beat-13-gumoi.js';
 import { loadBeat14 } from './beat-14-leviathan.js';
 import { loadTestDungeon } from './dev-test-dungeon.js';
+import { createOverworld } from '../overworld/overworld.js';
+import { TEST_SCREENS } from '../overworld/screens.js';
 
 export const LEVELS = [
     { id: 'sandbox-combat', name: 'Combat Sandbox', load: loadSandboxCombat, mood: 'crust', bossId: null },
@@ -39,6 +41,9 @@ export const LEVELS = [
 // the player-facing LEVELS list (menus, beat cycling, e2e level sweeps).
 export const DEV_LEVELS = [
     { id: 'w-test-dungeon', name: 'W Test Dungeon (dev)', load: loadTestDungeon, mood: 'crust', bossId: null },
+    // W4: the overworld ships here until Phase C1 fills the real 7×7 grid,
+    // then moves into LEVELS as 'The Scarred Crust'.
+    { id: 'overworld', name: 'The Scarred Crust (dev)', load: (ctx) => createOverworld(ctx, TEST_SCREENS), mood: 'crust', bossId: null },
 ];
 
 export function getLevel(id) {

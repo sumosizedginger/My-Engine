@@ -79,6 +79,7 @@ export function validateDungeonDef(def) {
     // Door symmetry check: every door's target must exist and point back.
     for (const [rid, room] of Object.entries(rooms)) {
         for (const door of room.doors || []) {
+            if (door.type === 'exit') continue; // leaves the dungeon entirely
             const other = rooms[door.to];
             if (!other) {
                 reasons.push(`${rid} door → missing room ${door.to}`);
@@ -113,6 +114,7 @@ export function validateDungeonDef(def) {
         while (queue.length) {
             const rid = queue.shift();
             for (const door of rooms[rid].doors || []) {
+                if (door.type === 'exit') continue;
                 if (seen.has(door.to) || !rooms[door.to]) continue;
                 const type = door.type || 'open';
                 if (type === 'locked') {
@@ -340,6 +342,19 @@ export function createDungeon(ctx, def, opts = {}) {
 
     function tryDoor(door, game) {
         const type = door.type || 'open';
+        if (type === 'exit') {
+            // Leaves the dungeon entirely (back to the overworld) — the def
+            // decides where; bounce if it doesn't handle exits.
+            if (def.onExit) {
+                def.onExit(game, api);
+            } else {
+                const n = SIDE_NORMAL[door.side];
+                game.player.rig.position.x -= n.x * 1.4;
+                game.player.rig.position.z -= n.z * 1.4;
+                game.player.physics.resetVelocity();
+            }
+            return;
+        }
         const dk = doorKey(def.id, currentRoomId, door.to);
         if ((type === 'locked' || type === 'boss') && !keyStore.isOpen(dk)) {
             let opened = false;

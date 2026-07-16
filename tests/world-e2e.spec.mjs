@@ -158,6 +158,102 @@ export async function run(t) {
             `keys=${persist.keysAfterRevisit}`);
         t.ok('reload: opened door stays open', persist.room === 'vault', persist.room);
 
+        // ── W4: overworld — screens, edge transitions, dungeon round-trip ──
+        const ow = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            const out = {};
+            s.game.paused = true;
+            s.loadLevel('overworld');
+            await new Promise((r) => setTimeout(r, 150));
+            let level = s.game.level;
+            const tick = (n) => { for (let i = 0; i < n; i++) s.game.level.update(0.05, s.game); };
+
+            out.boot = { screen: level.currentRoomId(), id: level.id };
+
+            // Edge transition E: r0c0 (grid 2,2 → origin 128,128) → r0c1
+            s.player.rig.position.set(151.3, 1.95, 128);
+            tick(1); tick(10);
+            out.east = s.game.level.currentRoomId();
+
+            // South from r0c1 (grid 3,2 → origin 192,128): edge at=4 → r1c1
+            s.player.rig.position.set(196, 1.95, 151.3);
+            tick(1); tick(10);
+            out.south = s.game.level.currentRoomId();
+
+            // West from r1c1 (grid 3,3 → origin 192,192): edge at=-4 → r1c0
+            s.player.rig.position.set(168.7, 1.95, 188);
+            tick(1); tick(10);
+            out.west = s.game.level.currentRoomId();
+
+            // Back N to r0c0, then enter the dungeon arch (E interact)
+            s.player.rig.position.set(128, 1.95, 168.7);
+            tick(1); tick(10);
+            out.backHome = s.game.level.currentRoomId();
+
+            s.player.rig.position.set(120, 1.95, 114); // entrance (-8,-14) local
+            s.game.input._interactPressed = true;
+            tick(2);
+            await new Promise((r) => setTimeout(r, 150));
+            out.inDungeon = { id: s.game.level.id, room: s.game.level.currentRoomId?.() };
+
+            // Exit S through the entry's exit door → back to the overworld
+            s.player.rig.position.set(0, 1.95, 8.3);
+            s.game.level.update(0.05, s.game);
+            await new Promise((r) => setTimeout(r, 150));
+            const p = s.player.root.position;
+            out.backOutside = {
+                id: s.game.level.id,
+                screen: s.game.level.currentRoomId?.(),
+                nearEntrance: Math.hypot(p.x - 120, p.z - 116) < 3,
+                pos: [+p.x.toFixed(1), +p.z.toFixed(1)],
+            };
+            s.game.paused = false;
+            return out;
+        });
+
+        t.ok('overworld loads at start screen', ow.boot.id === 'overworld' && ow.boot.screen === 'r0c0',
+            JSON.stringify(ow.boot));
+        t.ok('edge E → r0c1', ow.east === 'r0c1', ow.east);
+        t.ok('edge S → r1c1', ow.south === 'r1c1', ow.south);
+        t.ok('edge W → r1c0', ow.west === 'r1c0', ow.west);
+        t.ok('edge N → back to r0c0', ow.backHome === 'r0c0', ow.backHome);
+        t.ok('E enters the dungeon from the arch', ow.inDungeon.id === 'w-test-dungeon',
+            JSON.stringify(ow.inDungeon));
+        t.ok('exit door returns to the overworld', ow.backOutside.id === 'overworld',
+            JSON.stringify(ow.backOutside));
+        t.ok('exit restores the entrance screen + position',
+            ow.backOutside.screen === 'r0c0' && ow.backOutside.nearEntrance,
+            JSON.stringify(ow.backOutside));
+
+        // Save/reload mid-overworld restores the screen and position
+        await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            s.game.paused = true;
+            // Walk one screen east so pos ≠ default, then let onRoomEnter save
+            s.player.rig.position.set(151.3, 1.95, 128);
+            for (let i = 0; i < 12; i++) s.game.level.update(0.05, s.game);
+        });
+        await page.goto(server.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForFunction(() => !!(window.__sovereignScar && window.__sovereignScar.player), {
+            timeout: 25000,
+        });
+        const restored = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            s.game.atTitle = false;
+            s.game.paused = true;
+            s.menu.close();
+            s.game.paused = true;
+            s.loadLevel('overworld');
+            await new Promise((r) => setTimeout(r, 150));
+            const p = s.player.root.position;
+            return {
+                screen: s.game.level.currentRoomId(),
+                onEastScreen: p.x > 160, // r0c1 spans x ∈ [169, 216]
+            };
+        });
+        t.ok('reload restores overworld screen', restored.screen === 'r0c1', restored.screen);
+        t.ok('reload restores position on that screen', restored.onEastScreen);
+
         t.ok('no fatal pageerrors', errors.filter((e) => !/AudioContext|favicon/i.test(e)).length === 0,
             errors.slice(0, 5).join(' | '));
     } finally {
