@@ -139,6 +139,12 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 - W7: `world/blockers.js` — grapple_gap / wedge_crack / boot_ledge / caster_dark, each a build-time map edit + runtime; wired into room defs + overworld screens; TECTONIC_WEDGE gains shatter (cracks filter on attacker id, persist as `blocker:<id>`); ledge is hop-OVER (2-D collision means solids block at every height — G5). Dev gauntlet room + r1c1 placements; behavior e2e'd item-gated both ways. **640/640**
 - W8: save `version: 2` + one-shot v1 migration (fills `dungeons`/`overworld`, wipes nothing, persists on first load); migration spec. World state is write-through at mutation time, so the 10 s autosave needs no extension. **651/651**
 
+## Session 4 (cont.) — Phase W gate: Beat 01 vertical slice ✅
+
+- **Beat 01 rebuilt as a real 6-room dungeon** (`beat-01-crypt.js` → `BEAT01_DEF` on the room graph, `prebake: true`): tomb (awakening + S exit to overworld) → debris corridor (swept-AABB slalom, small key in a nook) → locked door → predecessor chamber (scattered-predecessor props, altar, story) → W secret room (boss key + shard cache, rubble-concealed door) → antechamber (guarded) → boss door → Crypt Warden (kill grants + equips the Anchor Link per S-extra). Boss intro/boss-bed fire on arena entry; boss HP bar gated to 30-unit proximity (prebaked bosses were showing it from four rooms away).
+- **CRUST_REGION overworld** (4 screens: scarfield w/ Crypt entrance arch, ridge w/ monolith, flats, sink w/ a grapple-gap): registry id `'overworld'` (DEV_LEVELS until C1); test grid moved to `'w-test-overworld'`; `createOverworld` takes `levelId` (mirror-swap was reloading the wrong overworld).
+- Full loop e2e'd in `world-e2e` (14 gate asserts): overworld → arch → tomb → corridor key → locked door → secret boss key → boss door → Warden kill fires the real defeat path → Anchor Link equipped → exit lands at the arch. `BEAT01_DEF` structurally validated in `world-graph.spec`. Certified by eye via headless captures in `docs/media/w-gate/` (tomb, corridor, predecessor, warden, scarfield, Tab map). **Suite 674/674.** This slice is the Phase C template.
+
 ## Known remaining polish (not blockers)
 - Character smear still ±X-biased (engine side-view heritage)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)

@@ -293,11 +293,14 @@ export function createDungeon(ctx, def, opts = {}) {
         currentRoomId = roomId;
         const room = def.rooms[roomId];
         setCameraBounds(roomRect(room));
-        // Dispose far rooms (boss room stays once its boss exists).
-        for (const otherId of [...baked.keys()]) {
-            if (otherId === roomId) continue;
-            if (otherId === bossRoomId && bossSpawned) continue;
-            if (gridDistance(def.rooms[otherId], room) >= 2) disposeRoom(otherId);
+        // Dispose far rooms (boss room stays once its boss exists). Prebaked
+        // dungeons keep everything — small graphs bake in milliseconds.
+        if (!def.prebake) {
+            for (const otherId of [...baked.keys()]) {
+                if (otherId === roomId) continue;
+                if (otherId === bossRoomId && bossSpawned) continue;
+                if (gridDistance(def.rooms[otherId], room) >= 2) disposeRoom(otherId);
+            }
         }
         keyStore.markVisited?.(roomId); // W6 map data
         if (api.onRoomEnter) api.onRoomEnter(roomId, game);
@@ -585,6 +588,9 @@ export function createDungeon(ctx, def, opts = {}) {
         },
     };
 
+    if (def.prebake) {
+        for (const roomId of Object.keys(def.rooms)) bakeRoom(roomId);
+    }
     enterRoom(def.start, null);
     return api;
 }

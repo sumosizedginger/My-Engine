@@ -46,13 +46,51 @@ Every beat boss implements combat fields (`root`, `hitRadius`, `hp`, `state`, `o
 - Map is truth; geometry re-baked on shatter
 - Solids registered per XZ column with stable ids
 
+## World architecture (Phase W)
+
+A dungeon is still **one registry entry**; its level object manages rooms
+internally (`src/game/world/room-graph.js`):
+
+- Room `(i, j)` lives at world origin `(i·64, 0, j·64)` (`ROOM_STRIDE`).
+- Only current (+transition-target) rooms are baked; distance-2 rooms are
+  disposed (boss room sticky; `def.prebake` keeps everything — used by real
+  dungeons so the boss exists at load).
+- Doors: `{ to, side, at, width, type: open|locked|boss|exit }`. Locked/boss
+  doors are voxel plugs removed on unlock; `exit` hands off via `def.onExit`.
+- Transitions: IDLE → SLIDING (0.35 s, player pinned at the far door, camera
+  bounds lerp — `CameraRig.setBounds` clamps a lerped look-at).
+- `validateDungeonDef(def)` — pure BFS with key economy; every dungeon def is
+  structurally tested in `tests/game/world-graph.spec.mjs`.
+
+The **overworld** (`src/game/overworld/`) reuses the same machinery: a screen
+is a room with partial borders modeled as wide edge doors. Entrance arches
+load dungeons (position saved for the return trip); the monolith swap rebuilds
+the current screen in the other mirror state after a 1.5 s mood ramp.
+
+**Keys** (`src/game/world/keys.js`): per-dungeon
+`{smallKeys, bossKey, opened[], visited[], taken[], mapPickup}` persisted under
+`sovereignProgress.dungeons[id]`; overworld `{pos, state, visited}` under
+`sovereignProgress.overworld`. `makeKeyStore(id)` is the write-through cached
+adapter levels use.
+
+**Blockers** (`src/game/world/blockers.js`): `grapple_gap`, `wedge_crack`,
+`boot_ledge`, `caster_dark` — each a build-time map edit + a runtime, declared
+per room/screen via `blockers: []`. Note: collision is 2-D, so `boot_ledge`
+is a hop-**over**, never a stand-on-top.
+
+**Map** (`ui/map-screen.js`): Tab overlay fed by `level.mapData()`.
+
 ## Progress
 
-Nested under engine settings:
+Nested under engine settings (`version: 2` since Phase W; v1 saves migrate
+one-shot in `kernel/progress.js`):
 
 ```js
 getProgress().sovereignProgress = {
-  currentBeat, unlockedBeats, inventory, hp, playTime, deaths, bossesDefeated, mood
+  version, currentBeat, unlockedBeats, inventory, hp, maxHp, playTime, deaths,
+  bossesDefeated, mood, settings, upgrades, lastRun, campaignComplete,
+  dungeons: { [id]: { smallKeys, bossKey, opened, visited, taken, mapPickup } },
+  overworld: { pos: { screen, x, z }, state, visited },
 }
 ```
 

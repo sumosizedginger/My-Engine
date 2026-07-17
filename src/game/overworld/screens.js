@@ -1,7 +1,94 @@
-// Overworld screen definitions. W4 ships a 2×2 test grid; C1 replaces it
-// with the real 7×7 dual-state world.
+// Overworld screen definitions.
+// CRUST_REGION: the real overworld seed (W gate: 4 screens around the Crypt
+// Breach entrance; C1 grows it to the full 7×7 dual-state world).
+// TEST_SCREENS: the 2×2 grid the world e2e suite drives.
 
-import { CRUST_COLORS } from '../assets/palettes.js';
+import { CRUST_COLORS, ABYSS_COLORS } from '../assets/palettes.js';
+
+export const CRUST_REGION = {
+    name: 'The Scarred Crust',
+    banner: 'The Scarred Crust — the Crypt wound lies north',
+    start: 'scarfield',
+    screens: {
+        // The Crypt Breach entrance stands on a scar-torn field
+        scarfield: {
+            grid: [10, 10],
+            spawn: { x: 0, z: 12 },
+            edges: [
+                { to: 'ridge', side: 'E', at: 0, width: 12 },
+                { to: 'flats', side: 'S', at: -6, width: 10 },
+            ],
+            entrances: [
+                { x: 0, z: -16, to: 'beat-01-crypt', label: 'the Crypt Breach' },
+            ],
+            build(map, h) {
+                // Scar fissure dressing + broken slabs flanking the road north
+                h.fillBox(map, -12, -9, 1, 2, -6, -4, CRUST_COLORS.slateDark);
+                h.fillBox(map, 8, 11, 1, 1, 2, 5, CRUST_COLORS.slate);
+                h.fillBox(map, -4, -3, 1, 3, -10, -9, CRUST_COLORS.iron);
+                h.fillBox(map, 3, 4, 1, 3, -10, -9, CRUST_COLORS.iron);
+            },
+            crust: {
+                build(map, h) {
+                    h.fillBox(map, -16, -14, 1, 2, 8, 10, CRUST_COLORS.slate);
+                },
+            },
+            abyss: {
+                build(map, h) {
+                    h.fillBox(map, 14, 16, 1, 2, 8, 10, ABYSS_COLORS.goldVein);
+                },
+            },
+            enemies: [
+                { x: 9, z: -8, kind: 'sentinel', hp: 2 },
+            ],
+        },
+        ridge: {
+            grid: [11, 10],
+            edges: [{ to: 'scarfield', side: 'W', at: 0, width: 12 }],
+            monolith: { x: 6, z: -6 },
+            build(map, h) {
+                h.fillBox(map, -6, 10, 1, 2, 10, 12, CRUST_COLORS.slateDark);
+                h.fillBox(map, 12, 16, 1, 3, -14, -10, CRUST_COLORS.slate);
+            },
+            enemies: [
+                { x: -4, z: 4, kind: 'scarab', hp: 2, ai: 'charge' },
+            ],
+        },
+        flats: {
+            grid: [10, 11],
+            edges: [
+                { to: 'scarfield', side: 'N', at: -6, width: 10 },
+                { to: 'sink', side: 'E', at: 0, width: 10 },
+            ],
+            build(map, h) {
+                h.fillBox(map, -10, -6, 1, 1, -4, 0, CRUST_COLORS.clay);
+                h.fillBox(map, 4, 8, 1, 2, 6, 8, CRUST_COLORS.slate);
+            },
+            enemies: [
+                { x: 0, z: 0, kind: 'sentinel', hp: 2 },
+            ],
+        },
+        sink: {
+            grid: [11, 11],
+            edges: [{ to: 'flats', side: 'W', at: 0, width: 10 }],
+            build(map, h) {
+                h.fillBox(map, -4, 4, 1, 1, -4, 4, CRUST_COLORS.clayDark);
+                h.fillBox(map, 10, 14, 1, 2, -12, -8, CRUST_COLORS.rust);
+            },
+            blockers: [
+                {
+                    type: 'grapple_gap', id: 'crust-sink-gap',
+                    rect: { x0: -16, x1: -12, z0: 8, z1: 14 },
+                    anchor: { x: -19, z: 11 },
+                    edge: { x: -10, z: 11 },
+                },
+            ],
+            enemies: [
+                { x: 6, z: 6, kind: 'frost', hp: 2, ai: 'ranged' },
+            ],
+        },
+    },
+};
 
 export const TEST_SCREENS = {
     name: 'The Scarred Crust (test 2×2)',

@@ -4,6 +4,7 @@
 
 import { validateDungeonDef, doorCells, doorKey, ROOM_STRIDE } from '../../src/game/world/room-graph.js';
 import { TEST_DUNGEON_DEF } from '../../src/game/levels/dev-test-dungeon.js';
+import { BEAT01_DEF } from '../../src/game/levels/beat-01-crypt.js';
 
 export function run(t) {
     // doorKey is order-independent
@@ -95,4 +96,14 @@ export function run(t) {
     const rt = validateDungeonDef(TEST_DUNGEON_DEF);
     t.ok('test dungeon def valid', rt.ok, rt.reasons.join('; '));
     t.ok('test dungeon rooms reachable', rt.reachable.length === 4, String(rt.reachable.length));
+
+    // The real Beat 01 dungeon (Phase W gate): 6 rooms, key economy sound
+    const b01 = validateDungeonDef(BEAT01_DEF);
+    t.ok('beat-01 def valid', b01.ok, b01.reasons.join('; '));
+    t.ok('beat-01 six rooms reachable', b01.reachable.length === 6, String(b01.reachable.length));
+    t.ok('beat-01 has a boss room', Object.values(BEAT01_DEF.rooms).some((r) => r.boss));
+    t.ok('beat-01 has a locked door', Object.values(BEAT01_DEF.rooms)
+        .some((r) => (r.doors || []).some((d) => d.type === 'locked')));
+    t.ok('beat-01 has a boss door', Object.values(BEAT01_DEF.rooms)
+        .some((r) => (r.doors || []).some((d) => d.type === 'boss')));
 }

@@ -28,6 +28,7 @@ export const SCREEN_HALF = 23; // 47×47 cells ≈ the plan's 48-unit screens
  * }
  */
 export function createOverworld(ctx, screensDef, opts = {}) {
+    const levelId = opts.levelId || 'overworld';
     const saved = getOverworldState();
     const mood = saved.state === 'abyss' ? 'abyss' : 'crust';
     const startScreen = (saved.pos && screensDef.screens[saved.pos.screen])
@@ -93,7 +94,7 @@ export function createOverworld(ctx, screensDef, opts = {}) {
     }
 
     const def = {
-        id: 'overworld',
+        id: levelId,
         name: screensDef.name || 'The Scarred Crust',
         mood,
         start: startScreen,
@@ -105,7 +106,7 @@ export function createOverworld(ctx, screensDef, opts = {}) {
                 level._swapTimer -= dt;
                 if (level._swapTimer <= 0) {
                     level._swapTimer = null;
-                    game.loadLevel?.('overworld');
+                    game.loadLevel?.(levelId);
                 }
                 return;
             }

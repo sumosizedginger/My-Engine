@@ -163,7 +163,7 @@ export async function run(t) {
             const s = window.__sovereignScar;
             const out = {};
             s.game.paused = true;
-            s.loadLevel('overworld');
+            s.loadLevel('w-test-overworld');
             await new Promise((r) => setTimeout(r, 150));
             let level = s.game.level;
             const tick = (n) => { for (let i = 0; i < n; i++) s.game.level.update(0.05, s.game); };
@@ -211,7 +211,7 @@ export async function run(t) {
             return out;
         });
 
-        t.ok('overworld loads at start screen', ow.boot.id === 'overworld' && ow.boot.screen === 'r0c0',
+        t.ok('overworld loads at start screen', ow.boot.id === 'w-test-overworld' && ow.boot.screen === 'r0c0',
             JSON.stringify(ow.boot));
         t.ok('edge E → r0c1', ow.east === 'r0c1', ow.east);
         t.ok('edge S → r1c1', ow.south === 'r1c1', ow.south);
@@ -219,7 +219,7 @@ export async function run(t) {
         t.ok('edge N → back to r0c0', ow.backHome === 'r0c0', ow.backHome);
         t.ok('E enters the dungeon from the arch', ow.inDungeon.id === 'w-test-dungeon',
             JSON.stringify(ow.inDungeon));
-        t.ok('exit door returns to the overworld', ow.backOutside.id === 'overworld',
+        t.ok('exit door returns to the overworld', ow.backOutside.id === 'w-test-overworld',
             JSON.stringify(ow.backOutside));
         t.ok('exit restores the entrance screen + position',
             ow.backOutside.screen === 'r0c0' && ow.backOutside.nearEntrance,
@@ -243,7 +243,7 @@ export async function run(t) {
             s.game.paused = true;
             s.menu.close();
             s.game.paused = true;
-            s.loadLevel('overworld');
+            s.loadLevel('w-test-overworld');
             await new Promise((r) => setTimeout(r, 150));
             const p = s.player.root.position;
             return {
@@ -345,8 +345,8 @@ export async function run(t) {
                     .find((x) => x.id === 'hall')?.doors
                     .find((d) => d.to === 'vault')?.opened === true,
             };
-            // A plain arena level has no map
-            s.loadLevel('beat-01-crypt');
+            // A plain arena level has no map (Beat 01 is a dungeon now)
+            s.loadLevel('beat-02-spindle');
             await new Promise((r) => setTimeout(r, 100));
             out.arenaHasMap = !!s.game.level.mapData;
             return out;
@@ -476,7 +476,7 @@ export async function run(t) {
         // Overworld placements present (same runtime code; presence check)
         const owBlk = await page.evaluate(async () => {
             const s = window.__sovereignScar;
-            s.loadLevel('overworld');
+            s.loadLevel('w-test-overworld');
             await new Promise((r) => setTimeout(r, 150));
             const level = s.game.level;
             level.enterRoom('r1c1', s.game);
@@ -493,6 +493,111 @@ export async function run(t) {
         t.ok('overworld chasm carved + anchor post', owBlk.chasm && owBlk.anchorPost,
             JSON.stringify(owBlk));
         t.ok('overworld ledge stamped', owBlk.ledge);
+
+        // ── W gate: the Beat 01 vertical slice, full loop ──
+        const gate = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            const out = {};
+            const player = s.player;
+            const tick = (n) => { for (let i = 0; i < n; i++) s.game.level.update(0.05, s.game); };
+            s.game.paused = true;
+
+            // Real overworld: falls back to scarfield (test-grid pos unknown here)
+            s.loadLevel('overworld');
+            await new Promise((r) => setTimeout(r, 150));
+            out.owScreen = s.game.level.currentRoomId();
+
+            // Enter the Crypt Breach arch (scarfield origin 640,640; entrance 0,-16)
+            player.rig.position.set(640, 1.95, 624);
+            s.game.input._interactPressed = true;
+            tick(2);
+            await new Promise((r) => setTimeout(r, 150));
+            out.inCrypt = {
+                id: s.game.level.id,
+                room: s.game.level.currentRoomId?.(),
+                baked: s.game.level.bakedRooms?.().length,
+                bossAtLoad: !!s.game.level.boss,
+                mapRooms: s.game.level.mapData?.().rooms.length,
+            };
+
+            // tomb → corridor (open N door)
+            player.rig.position.set(0, 1.95, -6.4);
+            tick(1); tick(10);
+            out.roomA = s.game.level.currentRoomId();
+
+            // locked N door bounces without the key
+            player.rig.position.set(0, 1.95, -73.4);
+            tick(1);
+            out.lockedHeld = s.game.level.currentRoomId() === 'corridor';
+
+            // grab the corridor key, open, pass into the predecessor chamber
+            player.rig.position.set(8, 1.95, -72.5);
+            tick(1);
+            out.gotSmallKey = s.game.level.keyStore.smallKeys() === 1;
+            player.rig.position.set(0, 1.95, -73.4);
+            tick(2); tick(10);
+            out.roomB = s.game.level.currentRoomId();
+
+            // west secret room → boss key
+            player.rig.position.set(-8.3, 1.95, -128);
+            tick(1); tick(10);
+            out.roomSecret = s.game.level.currentRoomId();
+            player.rig.position.set(-64, 1.95, -128);
+            tick(1);
+            out.gotBossKey = s.game.level.keyStore.hasBossKey();
+
+            // back east, north to the antechamber, boss door with the key
+            player.rig.position.set(-58.7, 1.95, -128);
+            tick(1); tick(10);
+            player.rig.position.set(0, 1.95, -136.4);
+            tick(1); tick(10);
+            out.roomC = s.game.level.currentRoomId();
+            player.rig.position.set(0, 1.95, -199.4);
+            tick(2); tick(10);
+            out.roomBoss = s.game.level.currentRoomId();
+
+            // Kill the Warden through the legitimate path
+            const boss = s.game.level.boss;
+            boss.hp = 0;
+            boss.onDeath?.();
+            tick(3);
+            out.bossCleared = !!s.game.level._bossCleared;
+            out.anchorGranted = player.inventory.weapons.includes('anchor_link')
+                && player.inventory.activeWeapon === 'anchor_link';
+
+            // Exit the crypt from the tomb → back on the scarfield at the arch
+            s.game.level.enterRoom('tomb', s.game);
+            player.rig.position.set(0, 1.95, 7.4);
+            tick(1);
+            await new Promise((r) => setTimeout(r, 150));
+            const p = player.root.position;
+            out.backOut = {
+                id: s.game.level.id,
+                screen: s.game.level.currentRoomId?.(),
+                nearArch: Math.hypot(p.x - 640, p.z - 626) < 3,
+            };
+            s.game.paused = false;
+            return out;
+        });
+        t.ok('gate: real overworld at scarfield', gate.owScreen === 'scarfield', gate.owScreen);
+        t.ok('gate: arch enters Beat 01', gate.inCrypt.id === 'beat-01-crypt'
+            && gate.inCrypt.room === 'tomb', JSON.stringify(gate.inCrypt));
+        t.ok('gate: dungeon prebaked with boss + 6-room map',
+            gate.inCrypt.baked === 6 && gate.inCrypt.bossAtLoad && gate.inCrypt.mapRooms === 6,
+            JSON.stringify(gate.inCrypt));
+        t.ok('gate: tomb → corridor', gate.roomA === 'corridor', gate.roomA);
+        t.ok('gate: locked door held without key', gate.lockedHeld);
+        t.ok('gate: corridor key found', gate.gotSmallKey);
+        t.ok('gate: key opens the way to the predecessor', gate.roomB === 'predecessor', gate.roomB);
+        t.ok('gate: secret room reached', gate.roomSecret === 'secret', gate.roomSecret);
+        t.ok('gate: boss key found in the secret room', gate.gotBossKey);
+        t.ok('gate: antechamber reached', gate.roomC === 'antechamber', gate.roomC);
+        t.ok('gate: boss key opens the Warden arena', gate.roomBoss === 'warden', gate.roomBoss);
+        t.ok('gate: Warden defeat fires the full path', gate.bossCleared);
+        t.ok('gate: Anchor Link salvaged + equipped', gate.anchorGranted);
+        t.ok('gate: exit returns to the scarfield arch',
+            gate.backOut.id === 'overworld' && gate.backOut.screen === 'scarfield'
+            && gate.backOut.nearArch, JSON.stringify(gate.backOut));
 
         t.ok('no fatal pageerrors', errors.filter((e) => !/AudioContext|favicon/i.test(e)).length === 0,
             errors.slice(0, 5).join(' | '));

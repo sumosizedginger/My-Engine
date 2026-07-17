@@ -219,8 +219,9 @@ function loadLevel(id) {
     updateWrapPass(wrapPass, 0, level.wrap || 0);
     game.activeBoss = level.boss || null;
 
-    // Boss intro moment (A6): name card + camera push shortly after load
-    game.bossIntro = (level.boss && !level.boss.defeated)
+    // Boss intro moment (A6): name card + camera push shortly after load.
+    // Multi-room dungeons suppress this and fire it on boss-room entry.
+    game.bossIntro = (level.boss && !level.boss.defeated && !level.suppressBossIntro)
         ? { t: 0.6, boss: level.boss, fired: false }
         : null;
 
@@ -747,7 +748,15 @@ function frame() {
         beatName: game.level?.name || getLevel(game.levelId).name,
         paused: game.paused,
         banner: game.level?.banner || '',
-        boss: game.activeBoss || game.level?.boss || null,
+        // Boss bar only when the fight is actually near (prebaked dungeons
+        // keep the boss alive rooms away)
+        boss: (() => {
+            const b = game.activeBoss || game.level?.boss || null;
+            if (!b || !b.root) return b;
+            const p = player.root.position;
+            const d = Math.hypot(b.root.position.x - p.x, b.root.position.z - p.z);
+            return d < 30 ? b : null;
+        })(),
         bossesDefeated: (prog.bossesDefeated || []).length,
         dt,
     });

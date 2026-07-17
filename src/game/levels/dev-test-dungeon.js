@@ -15,7 +15,7 @@ export const TEST_DUNGEON_DEF = {
         { room: 'hall', x: 4, z: 0, type: 'small' },
     ],
     onExit(game) {
-        game.loadLevel?.('overworld');
+        game.loadLevel?.('w-test-overworld');
     },
     rooms: {
         entry: {
