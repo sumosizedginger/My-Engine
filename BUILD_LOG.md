@@ -176,6 +176,8 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 
 - C5 story pass ✅: every dungeon now has intro (load) + mid (altar-room `onEnter`, once-guarded) + post-boss lines (`attachBoss` gains `defeatStory`, queued after the SYSTEM defeat line). Arc threads carried through: Act I counts memory keys 1→3, the Proxy defeat announces the phase shift, Act II counts the seven engineers freed 1→7, GUMOI speaks from Beat 12's defeat onward, Beat 14 hands off to the ending. Epilogue expanded 5→9 lines (committed with the docs refresh). Suite **955/955**.
 
+- C6 economy & tuning ✅: audit — full-clear income ≈ 620 (dungeon caches) + 170 (8 overworld secrets) + 1/kill ≈ 850+, vs 510 to max all upgrades (edge 60/140, ghost 50/120, longarm 40/100) → ~1.6× margin, cheapest tier (40) affordable by Beat 02–03. Hits-to-kill curve: Act I 10–16 @ Anchor 1.0 · Act II 6–9 @ Wedge 2.0 (5–7 with Edge) · Witness 9 · Leviathan 14 (10 at Edge max). One outlier fixed: **Crypt Warden 10 → 8 hp** — he's fought with the 0.5-dmg Bare Strike (his defeat grants the Link), 20 hits → 16. Automated playthroughs stay green (world-e2e real-combat Beat 01 loop + campaign-e2e all-14 sweep); the by-hand dev-off run is the Phase R gate. Suite **955/955**.
+
 ## Known remaining polish (not blockers)
 - Character smear still ±X-biased (engine side-view heritage)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)

@@ -25,7 +25,9 @@ export class CryptWarden extends BossBase {
         blade.position.set(1.1, 0.4, 0);
         body.add(torso, helm, blade);
         super(scene, {
-            id: 'crypt_warden', name: 'Crypt Warden', hp: 10, hitRadius: 1.1,
+            // C6: fought with the 0.5-dmg Bare Strike (his defeat grants the
+            // Anchor Link), so 8 hp = 16 hits — in line with the Act I curve.
+            id: 'crypt_warden', name: 'Crypt Warden', hp: 8, hitRadius: 1.1,
             contactRadius: 1.5, position, mesh: body, phaseThresholds: [0.5],
         });
         this.blade = blade;
