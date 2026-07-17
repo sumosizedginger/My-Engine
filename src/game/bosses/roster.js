@@ -312,8 +312,8 @@ export class ProxyBoss extends BossBase {
         // Soft orbit only in phase 1; later phases hold post-teleport spots with drift
         if (this.phase < 2) {
             const ang = this.t * 0.5;
-            this.root.position.x = Math.cos(ang) * (2 + this.phase);
-            this.root.position.z = -3 + Math.sin(ang) * (2 + this.phase * 0.5);
+            this.root.position.x = this.home.x + Math.cos(ang) * (2 + this.phase);
+            this.root.position.z = this.home.z + Math.sin(ang) * (2 + this.phase * 0.5);
             this.root.position.y = 1.5 + Math.sin(this.t * 2) * 0.3;
         } else {
             this.root.position.y = 1.5 + Math.sin(this.t * 2) * 0.25;
@@ -597,11 +597,12 @@ export class PhantasmBoss extends BossBase {
         this.mirrorCd -= dt;
         if (player && this.manifested) {
             // Mirror facing / chase inverted
-            const px = player.root.position.x;
-            const pz = player.root.position.z;
+            // Mirror-chase relative to the arena home, not the world origin
+            const rx = player.root.position.x - this.home.x;
+            const rz = player.root.position.z - this.home.z;
             const target = this.phase >= 2
-                ? { x: -px * 0.4, z: -pz * 0.4 - 2 }
-                : { x: px * 0.3, z: pz * 0.3 - 3 };
+                ? { x: this.home.x - rx * 0.4, z: this.home.z - rz * 0.4 - 2 }
+                : { x: this.home.x + rx * 0.3, z: this.home.z + rz * 0.3 - 3 };
             moveToward(this.root.position, target, 2.5, dt);
             if (this.mirrorCd <= 0) {
                 this.mirrorCd = 2.4;
@@ -685,9 +686,9 @@ export class FrostAndFuel extends BossBase {
                 this._cast = null;
             }
         }
-        // Slow orbit
-        this.root.position.x = Math.sin(this.t * 0.4) * 3;
-        this.root.position.z = -3 + Math.cos(this.t * 0.4) * 2;
+        // Slow orbit around the arena home
+        this.root.position.x = this.home.x + Math.sin(this.t * 0.4) * 3;
+        this.root.position.z = this.home.z + Math.cos(this.t * 0.4) * 2;
         this.root.position.y = 1.6;
     }
 }
@@ -810,23 +811,24 @@ export class MagmaWyrm extends BossBase {
     tickAI(dt, player) {
         this.pathT += dt * (this.phase >= 2 ? 1.4 : 0.9);
         const R = 5 + this.phase;
-        // Head follows figure-8
+        // Head follows a figure-8 around the arena home
         const hx = Math.sin(this.pathT) * R;
-        const hz = Math.sin(this.pathT * 2) * (R * 0.5) - 2;
-        // Chain segments
-        let px = hx, pz = hz;
+        const hz = Math.sin(this.pathT * 2) * (R * 0.5);
         for (let i = 0; i < this.segs.length; i++) {
             if (i === 0) {
                 this.segs[i].position.set(0, 0, 0);
-                this.root.position.set(px, 1.3 + Math.sin(this.pathT * 3) * 0.3, pz);
+                this.root.position.set(
+                    this.home.x + hx,
+                    1.3 + Math.sin(this.pathT * 3) * 0.3,
+                    this.home.z + hz
+                );
             } else {
-                const target = this.segs[i - 1].position;
-                // local chain
+                // local chain trails the same path, offset in phase
                 const ang = this.pathT - i * 0.35;
                 this.segs[i].position.set(
                     Math.sin(ang) * R - hx,
                     -i * 0.05,
-                    Math.sin(ang * 2) * (R * 0.5) - 2 - hz
+                    Math.sin(ang * 2) * (R * 0.5) - hz
                 );
             }
         }
@@ -906,10 +908,10 @@ export class GumoiWitness extends BossBase {
         this.mesh.rotation.x += dt * (0.5 + this.phase * 0.3);
         this.mesh.rotation.y += dt * (0.8 + this.phase * 0.2);
         this.root.position.y = (this.phase >= 3 ? 5 : 9.2) + Math.sin(this.t * 2) * 0.5;
-        // Orbit
+        // Orbit around the arena home
         const R = 2 + this.phase;
-        this.root.position.x = Math.cos(this.t * 0.7) * R;
-        this.root.position.z = Math.sin(this.t * 0.7) * R;
+        this.root.position.x = this.home.x + Math.cos(this.t * 0.7) * R;
+        this.root.position.z = this.home.z + Math.sin(this.t * 0.7) * R;
         if (game?.level) game.level.flicker = Math.min(1, 0.5 + this.flickerBoost + Math.sin(this.t * 5) * 0.15);
         this.castCd -= dt;
         if (player && this.castCd <= 0) {
@@ -990,8 +992,8 @@ export class LeviathanBoss extends BossBase {
         }
         // Orbit wobble in phase 2+
         if (this.phase >= 2) {
-            this.root.position.x = Math.sin(this.t * 0.5) * (1 + this.phase);
-            this.root.position.z = Math.cos(this.t * 0.4) * (1 + this.phase * 0.5);
+            this.root.position.x = this.home.x + Math.sin(this.t * 0.5) * (1 + this.phase);
+            this.root.position.z = this.home.z + Math.cos(this.t * 0.4) * (1 + this.phase * 0.5);
         }
         for (let i = 0; i < this.decoys.length; i++) {
             const a = this.t * 0.9 + i * (Math.PI * 2 / Math.max(1, this.decoys.length));

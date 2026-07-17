@@ -67,6 +67,13 @@ export class BossBase {
             scene.add(this.root);
         }
 
+        // Arena home: bosses that orbit/patrol do it around where they were
+        // placed, not the world origin (rooms live at offset origins now).
+        this.home = {
+            x: this.root ? this.root.position.x : 0,
+            z: this.root ? this.root.position.z : 0,
+        };
+
         this.onHit = (dmg) => {
             this._flash = 0.12;
             // Snapshot emissive bases once so flash can restore
