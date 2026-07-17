@@ -233,7 +233,16 @@ export function createDungeon(ctx, def, opts = {}) {
             solidPrefix: `${def.id}:${roomId}`,
         });
 
-        const rec = { built, plugs: new Map(), enemies: [], room, blockers: [] };
+        // Multi-Y platforms (G5): meshed WITHOUT XZ solids so their tops are
+        // standable — VoxelPhysicsBody climbs 1-cell steps via getVoxelAt.
+        let platformBuilt = null;
+        if (room.platforms) {
+            const pmap = new Map();
+            room.platforms(pmap, buildHelpers(room));
+            platformBuilt = meshAndCollide(pmap, scene, null, { origin });
+        }
+
+        const rec = { built, platformBuilt, plugs: new Map(), enemies: [], room, blockers: [] };
         for (const b of room.blockers || []) {
             const rt = createBlockerRuntime(ctx, api, b, origin);
             if (rt) rec.blockers.push(rt);
@@ -264,6 +273,7 @@ export function createDungeon(ctx, def, opts = {}) {
         const rec = baked.get(roomId);
         if (!rec) return;
         rec.built.dispose();
+        rec.platformBuilt?.dispose();
         for (const rt of rec.blockers || []) { try { rt.dispose(); } catch (_) {} }
         for (const plug of rec.plugs.values()) plug.dispose();
         for (const e of rec.enemies) {
@@ -469,6 +479,8 @@ export function createDungeon(ctx, def, opts = {}) {
             // disposeRoom skips nothing here — full teardown
             const rec = baked.get(roomId);
             rec.built.dispose();
+            rec.platformBuilt?.dispose();
+            for (const rt of rec.blockers || []) { try { rt.dispose(); } catch (_) {} }
             for (const plug of rec.plugs.values()) plug.dispose();
             for (const e of rec.enemies) e.dispose();
             baked.delete(roomId);
@@ -523,6 +535,7 @@ export function createDungeon(ctx, def, opts = {}) {
         getVoxelAt(wx, wy, wz) {
             for (const rec of baked.values()) {
                 if (rec.built.getVoxelAt(wx, wy, wz)) return true;
+                if (rec.platformBuilt && rec.platformBuilt.getVoxelAt(wx, wy, wz)) return true;
             }
             return false;
         },

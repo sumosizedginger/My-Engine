@@ -7,6 +7,7 @@ import { TEST_DUNGEON_DEF } from '../../src/game/levels/dev-test-dungeon.js';
 import { BEAT01_DEF } from '../../src/game/levels/beat-01-crypt.js';
 import { BEAT02_DEF } from '../../src/game/levels/beat-02-spindle.js';
 import { BEAT03_DEF } from '../../src/game/levels/beat-03-sink.js';
+import { BEAT04_DEF } from '../../src/game/levels/beat-04-sky.js';
 
 export function run(t) {
     // doorKey is order-independent
@@ -124,4 +125,11 @@ export function run(t) {
     t.ok('beat-03 eight rooms reachable', b03.reachable.length === 8, String(b03.reachable.length));
     t.ok('beat-03 boss room + sand friction', Object.values(BEAT03_DEF.rooms).some((r) => r.boss)
         && BEAT03_DEF.friction === 'sand');
+
+    // Beat 04 (C2): the multi-Y tower
+    const b04 = validateDungeonDef(BEAT04_DEF);
+    t.ok('beat-04 def valid', b04.ok, b04.reasons.join('; '));
+    t.ok('beat-04 eight rooms reachable', b04.reachable.length === 8, String(b04.reachable.length));
+    t.ok('beat-04 has multi-Y platform rooms', Object.values(BEAT04_DEF.rooms)
+        .filter((r) => typeof r.platforms === 'function').length >= 3);
 }
