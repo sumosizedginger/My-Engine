@@ -6,6 +6,7 @@ import { validateDungeonDef, doorCells, doorKey, ROOM_STRIDE } from '../../src/g
 import { TEST_DUNGEON_DEF } from '../../src/game/levels/dev-test-dungeon.js';
 import { BEAT01_DEF } from '../../src/game/levels/beat-01-crypt.js';
 import { BEAT02_DEF } from '../../src/game/levels/beat-02-spindle.js';
+import { BEAT03_DEF } from '../../src/game/levels/beat-03-sink.js';
 
 export function run(t) {
     // doorKey is order-independent
@@ -116,4 +117,11 @@ export function run(t) {
         .filter((k) => k.type === 'small').length === 2);
     t.ok('beat-02 has boss room + door', Object.values(BEAT02_DEF.rooms).some((r) => r.boss)
         && Object.values(BEAT02_DEF.rooms).some((r) => (r.doors || []).some((d) => d.type === 'boss')));
+
+    // Beat 03 (C2)
+    const b03 = validateDungeonDef(BEAT03_DEF);
+    t.ok('beat-03 def valid', b03.ok, b03.reasons.join('; '));
+    t.ok('beat-03 eight rooms reachable', b03.reachable.length === 8, String(b03.reachable.length));
+    t.ok('beat-03 boss room + sand friction', Object.values(BEAT03_DEF.rooms).some((r) => r.boss)
+        && BEAT03_DEF.friction === 'sand');
 }

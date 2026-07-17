@@ -153,6 +153,7 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 
 ## Session 4 (cont.) — C2 in progress
 
+- Beat 03 rebuilt as an 8-room Sink dungeon (`BEAT03_DEF`, sand friction, clay palette): sinkmouth → dunecross (key 1) with cistern (map) and boneyard (Phase Boot + boot-ledge lesson cache) wings → locked → slipway (altar, key 2, narrow secret door) → hollow secret (grapple-gap sinkhole cache) → locked → undertow (boss-key gauntlet) → boss door → spurpit (Sand Spur; grants the Sink memory key). Suite **732/732**.
 - Beat 02 rebuilt as an 8-room Spindle dungeon (`BEAT02_DEF`): gatehouse → gearworks (GearSystem gears, small key 1) with archive (map pickup) and coilhall (Light Caster, guarded) wings → locked → vaultrow (altar, small key 2, narrow secret door) → capacitor secret (30-shard cache + wedge-crack bonus wall) → locked → prebosscourt (boss key, 3-mob gauntlet) → boss door → spindlecrown (Tri-Compiler; defeat grants the Spindle memory key). Def validated (8 rooms, 2-key economy). Suite **713/713**.
 
 ## Known remaining polish (not blockers)
