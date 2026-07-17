@@ -5,6 +5,7 @@
 import { validateDungeonDef, doorCells, doorKey, ROOM_STRIDE } from '../../src/game/world/room-graph.js';
 import { TEST_DUNGEON_DEF } from '../../src/game/levels/dev-test-dungeon.js';
 import { BEAT01_DEF } from '../../src/game/levels/beat-01-crypt.js';
+import { BEAT02_DEF } from '../../src/game/levels/beat-02-spindle.js';
 
 export function run(t) {
     // doorKey is order-independent
@@ -106,4 +107,13 @@ export function run(t) {
         .some((r) => (r.doors || []).some((d) => d.type === 'locked')));
     t.ok('beat-01 has a boss door', Object.values(BEAT01_DEF.rooms)
         .some((r) => (r.doors || []).some((d) => d.type === 'boss')));
+
+    // Beat 02 (C2): 8 rooms, two locks, boss key economy sound
+    const b02 = validateDungeonDef(BEAT02_DEF);
+    t.ok('beat-02 def valid', b02.ok, b02.reasons.join('; '));
+    t.ok('beat-02 eight rooms reachable', b02.reachable.length === 8, String(b02.reachable.length));
+    t.ok('beat-02 two small keys', (BEAT02_DEF.keys || [])
+        .filter((k) => k.type === 'small').length === 2);
+    t.ok('beat-02 has boss room + door', Object.values(BEAT02_DEF.rooms).some((r) => r.boss)
+        && Object.values(BEAT02_DEF.rooms).some((r) => (r.doors || []).some((d) => d.type === 'boss')));
 }
