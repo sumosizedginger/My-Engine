@@ -3,6 +3,45 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-07-16 (unreleased until the Phase R gate passes)
+
+The "LttP scope" release: the fifteen single arenas became a connected world.
+Executes the Completion Plan (Phases S/D/W/C) via the Builder Guide.
+
+### Added
+- **World architecture**: room-graph dungeons on a 64-unit world grid (door
+  gaps, locked/boss-door plugs, camera room-lock panning, prebake, multi-Y
+  platform meshes), persistent per-dungeon key/door/visited state (save v2 +
+  one-shot migration), overworld screens with edge transitions, mirror travel
+  (monolith swaps between per-screen Crust/Abyss layouts), Tab map (overworld
+  grid + dungeon room graph), item-gating blockers (grapple gap, wedge crack,
+  boot ledge, caster shroud).
+- **Content**: 7×7 overworld (49 screens × 2 states, 8 regions, 14 dungeon
+  entrances, monoliths, secrets); all 14 beats rebuilt as 6–8-room dungeons
+  with keys, locks, boss keys, maps, secrets, altars, and their signature
+  systems; new game starts on the overworld; Bare Strike starting weapon —
+  the Anchor Link is salvaged from the Crypt Warden.
+- **Dev mode** (`?dev=1` / Ctrl+Shift+D): god/one-hit, F2 boss kill, F3 phase
+  force, teleport/grant panel, perf + luminance overlays, hitbox geometry.
+- Visual-sanity and campaign/world e2e suites (388 → 900+ assertions),
+  per-level luminance sampler, character `measure()` hook.
+
+### Fixed
+- P0-1: characters were ~7× world scale with feet below the floor (player
+  14.85 → 1.93 units, grounded via bounding-box shift).
+- P0-2: near-black scenes — the abyss vignette preset was crushing the frame
+  (13–32/255); lights now driven by mood presets, all 15+ scenes read
+  35–90/255.
+- P0-3: 0×0 canvas on hidden-tab boot (continuous size guard).
+- P1-4: no longer start holding the weapon Beat 01 says to salvage (plus the
+  `grantItem('anchor_link')` no-op).
+- P1-5: boss silhouettes now dominate trash mobs (presence scaling with
+  matched combat radii).
+- Bosses that orbit/patrol anchor to their arena, not the world origin.
+- Boss HP bar only shows when the fight is near.
+
+## [0.2.0-engine] — 2026-07-13 (kit changelog below)
+
 ## [0.2.0] — 2026-07-13
 
 Professionalization pass: the kit went from "code that works" to a real

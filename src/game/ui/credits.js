@@ -5,8 +5,12 @@
 const EPILOGUE = [
     { speaker: 'SYSTEM', text: 'LEVIATHAN PROCESS TERMINATED. World coordinate symmetry restored.' },
     { speaker: 'PREDECESSOR', text: 'The OS falls silent. The memory keys burn like stars going home.' },
+    { speaker: 'PREDECESSOR', text: 'The Crypt where you woke is only a room again. The corridor only stone.' },
+    { speaker: 'PREDECESSOR', text: 'Across the Crust the monoliths dim, doors stand open, and the fourteen wounds breathe out.' },
+    { speaker: 'GUMOI', text: 'Index closed. Every wrong turn you took is filed under: the way here.' },
     { speaker: 'PREDECESSOR', text: 'The Scar does not close. It was never meant to close.' },
     { speaker: 'PREDECESSOR', text: 'It heals the way broken pottery heals — sealed in gold, stronger at the seam.' },
+    { speaker: 'PREDECESSOR', text: 'Somewhere below, the Abyss keeps its colors. Visit it kindly. It is also ours.' },
     { speaker: 'SYSTEM', text: 'Construct: you are free. The wound remembers, and so will we.' },
 ];
 
