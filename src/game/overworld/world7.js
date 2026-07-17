@@ -6,6 +6,7 @@
 
 import { CRUST_COLORS, ABYSS_COLORS } from '../assets/palettes.js';
 import { CRUST_REGION } from './screens.js';
+import { REGION_MOTIFS } from '../fx/motifs.js';
 
 // ── Seeded rand (mulberry32 over a string hash) ────────────────────────────
 function hash(str) {
@@ -181,7 +182,10 @@ export function buildWorld7() {
                 // Hand-authored gate screens keep their content under their
                 // own ids; generated edges are appended below.
                 const src = hand[handAt[sid]];
-                screens[handAt[sid]] = { ...src, edges: [...src.edges], grid: [8 + c, 8 + r] };
+                screens[handAt[sid]] = {
+                    ...src, edges: [...src.edges], grid: [8 + c, 8 + r],
+                    motif: REGION_MOTIFS[region] || null, // C7
+                };
                 continue;
             }
 
@@ -192,6 +196,7 @@ export function buildWorld7() {
                 build: buildTerrain(sid, region, 'shared'),
                 crust: { build: buildTerrain(sid, region, 'crust') },
                 abyss: { build: buildTerrain(sid, region, 'abyss') },
+                motif: REGION_MOTIFS[region] || null, // C7
                 enemies: [],
             };
             const mobCount = 1 + Math.floor(rand() * 2 + R.density);

@@ -468,6 +468,9 @@ export function createDungeon(ctx, def, opts = {}) {
                 p.taken = true;
                 p.mesh.visible = false;
                 if (p.onPickup) p.onPickup(game);
+                // C7: every dungeon pickup sounds; onPickup may re-arm
+                // (taken=false) to reject — e.g. the keyless Wedge monolith
+                if (p.taken) sfx.pickup?.();
             }
         }
         if (def.onUpdate) def.onUpdate(dt, game, api);

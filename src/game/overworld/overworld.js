@@ -226,6 +226,8 @@ export function createOverworld(ctx, screensDef, opts = {}) {
     level.onRoomEnter = (sid, game) => {
         markScreenVisited(sid);
         if (game) {
+            // C7: region motif follows the player across screens
+            game.mood?.setMusicMotif?.(screensDef.screens[sid]?.motif || null);
             const room = rooms[sid];
             const p = game.player.root.position;
             patchOverworld({
@@ -238,6 +240,9 @@ export function createOverworld(ctx, screensDef, opts = {}) {
             });
         }
     };
+
+    // C7: the starting screen's motif applies at load (index.js reads this)
+    level.initialMotif = screensDef.screens[startScreen]?.motif || null;
 
     return level;
 }

@@ -19,6 +19,7 @@ import { bossSubtitle } from './bosses/subtitles.js';
 import { Player } from './player.js';
 import { HUD } from './ui/hud.js';
 import { MoodController } from './fx/mood-controller.js';
+import { BEAT_MOTIFS } from './fx/motifs.js';
 import { createFlickerPass, updateFlickerPass } from './fx/flicker-shader-pass.js';
 import { createWrapPass, updateWrapPass } from './render/wrap-shader-pass.js';
 import { LEVELS, DEV_LEVELS, getLevel, nextLevelId, prevLevelId } from './levels/registry.js';
@@ -208,6 +209,9 @@ function loadLevel(id) {
     camRig.snapTo(player.root.position);
 
     const moodName = level.mood || meta.mood || 'crust';
+    // C7: per-beat motif rides every bed this level starts (incl. boss);
+    // the overworld supplies its starting screen's region motif instead
+    mood.musicMotif = level.initialMotif || BEAT_MOTIFS[meta.id] || null;
     mood.apply(moodName, {
         audio: true,
         music: level.musicBed || (level.boss ? 'boss' : (moodName === 'abyss' ? 'abyss' : 'crust')),
@@ -632,7 +636,7 @@ function frame() {
                 if (b && !b.defeated) {
                     hud.bossCard(b.bossName, bossSubtitle(b.bossId));
                     camRig.focus({ height: 6, back: 3.5, duration: 1.8, target: b.root?.position || null });
-                    sfx.phase();
+                    sfx.stinger(); // C7 boss reveal stinger
                 }
             }
         }

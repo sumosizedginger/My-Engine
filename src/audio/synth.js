@@ -207,6 +207,13 @@ export const sfx = {
         playTone('sine', 523, 659, 0.28, 0.22);
         playTone('triangle', 659, 784, 0.35, 0.18);
     },
+    stinger() {
+        // Boss reveal: low fifth slam + rising minor third
+        playTone('sawtooth', 55, 41, 0.6, 0.5, 200);
+        playTone('square', 110, 110, 0.5, 0.22);
+        playTone('triangle', 220, 262, 0.35, 0.25);
+        playNoise(0.5, 0.3, 'lowpass', 700, 120);
+    },
 };
 
 // ── Layered music beds (bass + fifth + pulse) ────────────────────────────────
@@ -235,23 +242,33 @@ const MUSIC_BEDS = {
 
 let _bedName = null;
 let _pulseAcc = 0;
+let _motif = null;
+let _pulseIx = 0;
 
-/** Start a layered music bed (replaces prior bed drones). */
-export function startMusicBed(name = 'crust') {
+/**
+ * Start a layered music bed (replaces prior bed drones).
+ * `motif` (C7, optional): { transpose, pattern } — transpose scales every
+ * layer's frequency; pattern is a cycle of ratios the pulse walks through.
+ */
+export function startMusicBed(name = 'crust', motif = null) {
     if (!audioCtx) return;
     const layers = MUSIC_BEDS[name] || MUSIC_BEDS.crust;
+    const k = (motif && motif.transpose) || 1;
     // Stop previous bed ids only
     for (const id of ['bed-bass', 'bed-fifth', 'bed-air']) stopDrone(id);
     for (const L of layers) {
-        playDrone(L.type, L.freq, L.vol, 'music', L.id);
+        playDrone(L.type, L.freq * k, L.vol, 'music', L.id);
     }
     _bedName = name;
+    _motif = motif;
     _pulseAcc = 0;
+    _pulseIx = 0;
 }
 
 export function stopMusicBed() {
     for (const id of ['bed-bass', 'bed-fifth', 'bed-air']) stopDrone(id);
     _bedName = null;
+    _motif = null;
 }
 
 /** Soft rhythmic tick under music beds — call from mood update. */
@@ -261,7 +278,10 @@ export function updateMusicBed(dt) {
     const interval = _bedName === 'boss' || _bedName === 'leviathan' ? 0.55 : 0.9;
     if (_pulseAcc >= interval) {
         _pulseAcc = 0;
-        const f0 = _bedName === 'abyss' || _bedName === 'leviathan' ? 90 : 130;
+        const base = _bedName === 'abyss' || _bedName === 'leviathan' ? 90 : 130;
+        const k = (_motif && _motif.transpose) || 1;
+        const pat = (_motif && _motif.pattern && _motif.pattern.length) ? _motif.pattern : [1];
+        const f0 = base * k * pat[_pulseIx++ % pat.length];
         playTone('sine', f0, f0 * 0.7, 0.08, 0.04, null, 'music');
     }
 }

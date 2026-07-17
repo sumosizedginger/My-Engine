@@ -15,6 +15,7 @@ export class MoodController {
         this._noiseAcc = 0;
         this._ramp = null; // { from, to, t, dur }
         this.musicProfile = 'crust';
+        this.musicMotif = null; // C7 per-beat/region motif
         this._lights = null;
     }
 
@@ -65,7 +66,7 @@ export class MoodController {
             if (d) playDrone(d.type, d.freq, (d.vol || 0.05) * 0.55, 'music', d.id || 'mood');
             const bed = music || (this.mood === 'abyss' ? 'abyss' : 'crust');
             this.musicProfile = bed;
-            startMusicBed(bed);
+            startMusicBed(bed, this.musicMotif);
         }
     }
 
@@ -74,7 +75,16 @@ export class MoodController {
         if (getSetting('reduceHorrorAudio')) return;
         try { initAudio(); } catch (_) {}
         this.musicProfile = name;
-        startMusicBed(name);
+        startMusicBed(name, this.musicMotif);
+    }
+
+    /** C7: set the per-beat/region motif; restarts the current bed with it. */
+    setMusicMotif(motif) {
+        if (this.musicMotif === motif) return;
+        this.musicMotif = motif || null;
+        if (this.musicProfile && !getSetting('reduceHorrorAudio')) {
+            startMusicBed(this.musicProfile, this.musicMotif);
+        }
     }
 
     /** Smooth 1.5s phase-shift ramp (Beat 05). */
