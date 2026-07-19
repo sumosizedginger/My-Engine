@@ -17,6 +17,15 @@ Method: A/B are asserted per level by `tests/visual-sanity.spec.mjs`
 (entry + boss room per dungeon, one screen per region per state), zero
 pageerrors across every capture run. Lum column: entry / boss-room samples.
 
+> **Stale captures (Session 6).** Every screenshot below was taken with the
+> pre-Session-6 camera (65° FOV, shallower tilt). The camera has since been
+> retuned to read top-down (40° FOV, steeper rig), so the stored images no
+> longer match what the game renders. Column **B** is unaffected and still
+> verified — `visual-sanity.spec.mjs` runs on every suite pass and is green at
+> the new framing, so all luminance values remain in band. Column **C**
+> ("camera frames the room") was certified by eye against the old framing and
+> should be re-checked when the captures are regenerated.
+
 Fixes landed during this pass (fix-forward): Beat 03 spurpit floor
 (clay 91→72), Beat 09 moothall bone plaza + floor lift (11→39), Beat 11
 islets recolored to read dry + shelf ruins + rotPale floor (18→36), five

@@ -202,6 +202,17 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 - Two findings, both **design confirmations, not bugs**: (1) the **Obsidian Arachnid** is unhittable at point-blank — that's the intended leap-bait (shielded except mid-leap, and the leap only triggers at player distance 3–12). The spec now plays it like a player: kite at range 6 while `shielded`/`canHit===false`, dart to 1.2 and swing when the window opens. (2) the **GUMOI Witness** orbits at y≈9.2 and is melee-immune by design — it falls to the Light Caster ray (the spec's weapon-rotation lands on `light_caster` and kills it in ~31s). All 12 others fall to the Tectonic Wedge in <4s.
 - Wired into `run-all.mjs` before visual-sanity. Suite **980 → 995/995**.
 
+## Session 6 — first real playtest: camera + input fixes
+
+The first by-hand play session produced two reports: "the levels look 2.5D, not LttP" and "found the first small key but the gold door wouldn't open." Both are now closed — and the second turned out not to be a door bug at all.
+
+- **Camera read (`fix(camera)`)** ✅: the gameplay rig is `src/game/camera-rig.js` (product code — `engine/renderer.js`'s belt-scroller camera is frozen and unused here). Narrowed FOV **65° → 40°** to kill the wide-lens convergence that made rooms read as "a 3D scene at an angle," and steepened the rig (`back = height * 0.66 → 0.35`, per-room height `8 + half*0.35 → 16 + half*0.7`, rebalanced so visible floor area is preserved at the tighter FOV).
+- **Boss-intro focus leak (same commit)** ✅: a real latent bug surfaced while verifying the new framing — `CameraRig.focus()` (the boss push-in) was never cancelled on level change, so a lingering dip blended into the next level's rig. Repro: warden arena → overworld left the camera buried in a wall. Added `clearFocus()`, called from `loadLevel`.
+- **Gamepad stick arming (`fix(input)`)** ✅ — *the root cause of BOTH playtest reports*. A DualSense was reporting `axes[0] = 0.937` (hard right) against a `0.18` deadzone; `Input.moveVector()` falls back to `padMove` whenever no key is held, so the pad beat the keyboard every frame. The player was shoved east constantly — which also meant they could never line up with the corridor's **2-unit-wide, centred** door gap (`|p.x - doorCx| < 1.5`). Hence "the gold door won't open" with a valid key, and hence every door test passing. Fix: each stick is armed only once **seen at rest**; off-centre-at-connect (held/drifting/stuck) reads zero. Healthy sticks are neutral on first poll and arm instantly. Different pad id ⇒ re-arm.
+- **Off-centre hint (`feat(input)`)** ✅: arming alone failed silently, indistinguishable from "pad unsupported". `input.padStickHeld` now reports the suppressed state and the main loop shows a one-shot HUD toast.
+- Suite **995 → 1006/1006** (11 new gamepad asserts). Verified end-to-end through the real main loop with an injected pinned stick: 0 drift while held, normal analog motion after it centres once; toast render confirmed by screenshot.
+- **Triage lesson:** headless Chrome enumerates the host's real controllers, so the automated suite sees them too — a stray gamepad legend in a captured screenshot was the tell. On any movement-adjacent bug report, dump `navigator.getGamepads()` axes first.
+
 ## Known remaining polish (not blockers)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)
 - Music is synthesized beds + motifs, not composed tracks
@@ -210,7 +221,7 @@ Per [../Sovereign-Scar-Builder-Guide.md](../Sovereign-Scar-Builder-Guide.md). Ba
 ## How to run
 ```bash
 cd sovereign-scar
-npm test          # full suite (995)
+npm test          # full suite (1006)
 npm run test:unit
 npm run serve     # http://127.0.0.1:8799/
 ```

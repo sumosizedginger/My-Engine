@@ -3,6 +3,26 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+First by-hand playtest feedback, fixed.
+
+### Changed
+- Gameplay camera reads top-down instead of 3/4-perspective: FOV 65° → 40°
+  and a steeper rig tilt (visible floor area preserved at the tighter FOV).
+
+### Fixed
+- A gamepad stick that is off-centre when it connects (held, drifting, or
+  stuck) no longer pins movement in one direction. Sticks are trusted only
+  once seen at rest; the pad otherwise overrode the keyboard every frame and
+  made the game unplayable. A one-shot HUD hint now explains the suppression
+  instead of the controller silently doing nothing.
+  This also resolved a reported "locked door won't open with a valid key":
+  the player was being shoved sideways and could never line up with the
+  2-unit-wide centred door gap.
+- The boss-intro camera push-in is now cancelled on level change; it could
+  previously bleed into the next level and leave the camera inside a wall.
+
 ## [0.3.0] — 2026-07-17
 
 The "LttP scope" release: the fifteen single arenas became a connected world.
