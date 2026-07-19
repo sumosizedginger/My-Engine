@@ -209,11 +209,16 @@ function loadLevel(id) {
 
     const sp = level.spawn || { x: 0, y: 1.2, z: 0 };
     player.setSpawn(sp.x, sp.y != null ? sp.y : 1.2, sp.z);
-    // S5: fit the camera to the room size (steeper back:height ratio for a
-    // bird's-eye read; height coefficients rebalanced to match the old
-    // visible-area coverage at the new narrower FOV, see camera.fov above)
+    // S5: fit the camera to the room size. Coefficients are solved against
+    // MEASURED coverage (visible width ÷ room width) at the 40° FOV, so that
+    // narrowing the lens does not silently change how zoomed the game feels:
+    //   dungeon room (half 7): 1.54  (pre-40°-FOV camera: 1.65)
+    //   overworld screen (half 23): 1.04  (pre: 0.93)
+    // Only the tilt changed; zoom stays where it has always been. A naive
+    // height bump alongside the FOV change measured 2.00 here — rooms sat in
+    // void at half the frame width — which is why these are fitted, not eyeballed.
     camRig.clearFocus(); // a boss-intro push-in must not bleed into the next level
-    camRig.height = 16 + (level.halfSize || 12) * 0.7;
+    camRig.height = 7.4 + (level.halfSize || 12) * 1.16;
     camRig.back = camRig.height * 0.35;
     camRig.snapTo(player.root.position);
 
