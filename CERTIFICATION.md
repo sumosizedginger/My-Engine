@@ -19,12 +19,21 @@ pageerrors across every capture run. Lum column: entry / boss-room samples.
 
 > **Stale captures (Session 6).** Every screenshot below was taken with the
 > pre-Session-6 camera (65° FOV, shallower tilt). The camera has since been
-> retuned to read top-down (40° FOV, steeper rig), so the stored images no
-> longer match what the game renders. Column **B** is unaffected and still
-> verified — `visual-sanity.spec.mjs` runs on every suite pass and is green at
-> the new framing, so all luminance values remain in band. Column **C**
-> ("camera frames the room") was certified by eye against the old framing and
-> should be re-checked when the captures are regenerated.
+> retuned to read top-down (40° FOV, steeper rig, coverage refit), so the
+> stored images no longer match what the game renders. **The images are stale;
+> the claims have been re-verified.**
+>
+> - Column **B** (luminance): re-sampled on all 14 dungeon entries at the new
+>   framing — 36.1–76.1, every value in band, 0 pageerrors. `visual-sanity.spec.mjs`
+>   also runs on every suite pass and is green.
+> - Column **C** (camera frames the room): re-checked. A numeric sweep of all 15
+>   levels puts coverage (visible width ÷ room width) at **1.54** for dungeon
+>   rooms and **1.04** for overworld screens — rooms fill the frame with margin,
+>   no void bleed; spot-confirmed by eye on the cases most sensitive to a height
+>   change (Beat 04's multi-Y monument, Beat 14's wrap-shader core).
+>
+> Regenerating the 44 stored images is still outstanding — it is a large binary
+> refresh and pairs naturally with the by-hand playthrough.
 
 Fixes landed during this pass (fix-forward): Beat 03 spurpit floor
 (clay 91→72), Beat 09 moothall bone plaza + floor lift (11→39), Beat 11
