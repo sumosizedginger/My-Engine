@@ -9,7 +9,7 @@
 // (we certify killability, not survivability). If half the budget passes
 // with no damage dealt, rotate to the next weapon.
 
-import { startServer, findChromeVerbose, sleep } from './harness.mjs';
+import { startServer, findChromeVerbose, sleep, disableGamepads } from './harness.mjs';
 
 const BEATS = [
     'beat-01-crypt', 'beat-02-spindle', 'beat-03-sink', 'beat-04-sky',
@@ -35,6 +35,7 @@ export async function run(t) {
             args: ['--no-sandbox', '--disable-gpu', '--use-gl=swiftshader'],
         });
         const page = await browser.newPage();
+        await disableGamepads(page);
         page.setDefaultTimeout(120000);
         page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
         await page.goto(server.url, { waitUntil: 'domcontentloaded', timeout: 60000 });

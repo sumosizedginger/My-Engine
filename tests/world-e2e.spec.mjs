@@ -3,7 +3,7 @@
 // ticking level.update deterministically (headless swiftshader is too slow
 // for realtime input), same pattern as boss-e2e.
 
-import { startServer, findChromeVerbose, sleep } from './harness.mjs';
+import { startServer, findChromeVerbose, sleep, disableGamepads } from './harness.mjs';
 
 export async function run(t) {
     const chrome = findChromeVerbose();
@@ -28,6 +28,7 @@ export async function run(t) {
             args: ['--no-sandbox', '--disable-gpu', '--use-gl=swiftshader'],
         });
         const page = await browser.newPage();
+        await disableGamepads(page);
         page.setDefaultTimeout(60000);
         const errors = [];
         page.on('pageerror', (e) => errors.push(String(e.message || e)));

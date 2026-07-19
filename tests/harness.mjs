@@ -30,6 +30,27 @@ export function findChrome() {
     return findChromeVerbose().path;
 }
 
+/**
+ * Neutralise the Gamepad API for a test page. Call right after newPage().
+ *
+ * Headless Chrome enumerates the HOST machine's real controllers, and every
+ * browser spec runs the game's real main loop — which polls the gamepad each
+ * frame and feeds `Input.moveVector()`, which falls back to the stick whenever
+ * no key is held. So whatever is plugged into the developer's desk was driving
+ * the player during tests. A stick resting off-centre (held or drifting)
+ * injected constant movement and made scripted-position specs flaky: it
+ * diverted world-e2e's dash assertions sideways and failed
+ * "phase boot hops the ledge" intermittently.
+ *
+ * Tests must not depend on what hardware is attached to the machine running
+ * them. Gameplay pad handling is covered by tests/game/gamepad.spec.mjs.
+ */
+export async function disableGamepads(page) {
+    await page.evaluateOnNewDocument(() => {
+        navigator.getGamepads = () => [];
+    });
+}
+
 /** Same search as findChrome(), but also returns the candidate list tried —
  * used to make CI failures self-diagnosing without needing log access. */
 export function findChromeVerbose() {

@@ -2,7 +2,7 @@
 // Skipped automatically when Chrome/Edge is not installed.
 
 import {
-    createSink, startServer, findChromeVerbose, sleep,
+    createSink, startServer, findChromeVerbose, sleep, disableGamepads,
 } from './harness.mjs';
 
 export async function run(t) {
@@ -29,6 +29,7 @@ export async function run(t) {
             args: ['--no-sandbox', '--disable-gpu', '--use-gl=swiftshader'],
         });
         const page = await browser.newPage();
+        await disableGamepads(page);
         page.setDefaultTimeout(20000);
 
         const errors = [];

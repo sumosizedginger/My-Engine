@@ -6,7 +6,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer-core';
-import { startServer, findChromeVerbose, sleep, createSink, summarize } from './harness.mjs';
+import { startServer, findChromeVerbose, sleep, createSink, summarize, disableGamepads } from './harness.mjs';
 
 const PORT = Number(process.env.PORT) || 8765;
 
@@ -95,6 +95,7 @@ export async function run(t) {
         // operation, not navigation itself. page.goto() to a new URL on the
         // same page/tab is the one pattern that held up.
         const page = await browser.newPage();
+        await disableGamepads(page);
         const errors = [];
         page.on('pageerror', (e) => errors.push(String(e)));
         page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });

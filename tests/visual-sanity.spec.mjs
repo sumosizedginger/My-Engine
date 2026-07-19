@@ -3,7 +3,7 @@
 // These asserts would have caught P0-1 (7× characters), P0-2 (near-black
 // scenes) and P1-5 (bosses smaller than trash mobs).
 
-import { startServer, findChromeVerbose, sleep } from './harness.mjs';
+import { startServer, findChromeVerbose, sleep, disableGamepads } from './harness.mjs';
 
 const LUM_BANDS = {
     crust: [45, 90],
@@ -35,6 +35,7 @@ export async function run(t) {
             args: ['--no-sandbox', '--disable-gpu', '--use-gl=swiftshader'],
         });
         const page = await browser.newPage();
+        await disableGamepads(page);
         page.setDefaultTimeout(60000);
         await page.goto(server.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForFunction(() => !!(window.__sovereignScar && window.__sovereignScar.player), {

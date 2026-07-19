@@ -1,7 +1,7 @@
 // Browser E2E: every story beat loads a boss; simulate damage/defeat; story HUD.
 
 import {
-    startServer, findChromeVerbose, sleep,
+    startServer, findChromeVerbose, sleep, disableGamepads,
 } from './harness.mjs';
 
 const BEAT_BOSSES = [
@@ -45,6 +45,7 @@ export async function run(t) {
             args: ['--no-sandbox', '--disable-gpu', '--use-gl=swiftshader'],
         });
         const page = await browser.newPage();
+        await disableGamepads(page);
         page.setDefaultTimeout(30000);
         const errors = [];
         page.on('pageerror', (e) => errors.push(String(e.message || e)));
