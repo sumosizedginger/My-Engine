@@ -92,7 +92,12 @@ export async function run(t) {
                             // dart in and swing when the window opens.
                             const guarded = !boss.cores
                                 && (boss.shielded || boss.canHit === false);
-                            const dist = guarded ? 6 : 1.2;
+                            // Standoff while guarded — but 5, not 6. The Crypt
+                            // Warden only wakes inside 7 units, and a kite that
+                            // parks outside its wake radius deadlocks: it never
+                            // wakes, so it never drops its shield, so the bot
+                            // never closes, forever.
+                            const dist = guarded ? 5 : 1.2;
                             player.rig.position.set(bp.x + dist, 1.95, bp.z + 0.4);
                             player.physics.resetVelocity();
                             player.physics.grounded = true;

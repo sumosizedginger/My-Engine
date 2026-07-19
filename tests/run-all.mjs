@@ -31,6 +31,7 @@ import { run as runMigration } from './game/migration.spec.mjs';
 import { run as runWorld7 } from './game/world7.spec.mjs';
 import { run as runMotifs } from './game/motifs.spec.mjs';
 import { run as runCombatFeel } from './game/combat-feel.spec.mjs';
+import { run as runBossGrammar } from './game/boss-grammar.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -76,6 +77,7 @@ async function main() {
     runNamed('world7', runWorld7);
     runNamed('motifs', runMotifs);
     runNamed('combat-feel', runCombatFeel);
+    runNamed('boss-grammar', runBossGrammar);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');
@@ -117,6 +119,11 @@ async function main() {
         const lockedDoorsE2E = createSink('locked-doors-e2e');
         await runLockedDoorsE2E(lockedDoorsE2E);
         sinks.push(lockedDoorsE2E);
+
+        const { run: runBossQuality } = await import('./boss-quality-e2e.spec.mjs');
+        const bossQuality = createSink('boss-quality-e2e');
+        await runBossQuality(bossQuality);
+        sinks.push(bossQuality);
 
         const { run: runCombatFeelE2E } = await import('./combat-feel-e2e.spec.mjs');
         const combatFeelE2E = createSink('combat-feel-e2e');

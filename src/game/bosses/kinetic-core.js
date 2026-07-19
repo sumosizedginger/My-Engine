@@ -73,6 +73,89 @@ export class KineticCore extends BossBase {
     }
 
     tickAI(dt, player) {
+        // ── Ricochet, then charge ───────────────────────────────────────────
+        // The Core bounces the arena as its resting pattern, but on a timer it
+        // stops dead, sights down the line to the player and rams along it,
+        // burying itself in the far wall. The wall stuns it: that is the
+        // opening, and it is the only one that does not depend on catching the
+        // bob at the right instant.
+        //
+        // Ricochet alone never read the player at all — its whole path was a
+        // function of the clock, so there was nothing to dodge and nothing to
+        // bait, only a timer to wait out.
+        if (this.busy) {
+            const a = this.action;
+            if (a.stage === 'windup') {
+                this.root.rotation.x += dt * 18; // spinning up in place
+            } else {
+                // Travel the charge over the first slice of the recovery
+                // instead of teleporting to the wall. A hit that never occupies
+                // the ground between here and there cannot be dodged, blocked,
+                // or even seen — it just happens.
+                if (this._dash) {
+                    const dsh = this._dash;
+                    const step = Math.min(dsh.left, 26 * dt);
+                    this.root.position.x += dsh.dir.x * step;
+                    this.root.position.z += dsh.dir.z * step;
+                    dsh.left -= step;
+                    this.root.rotation.x += dt * 24;
+                    if (player && !player.health?.dead && !dsh.hit) {
+                        if (Math.hypot(
+                            player.root.position.x - this.root.position.x,
+                            player.root.position.z - this.root.position.z
+                        ) < 1.6) {
+                            player.health.damage(this.phase >= 2 ? 2 : 1, 0.4);
+                            dsh.hit = true;
+                        }
+                    }
+                    if (dsh.left <= 0) {
+                        this._dash = null;
+                        sfx.stomp();
+                        const pos = { x: this.root.position.x, z: this.root.position.z };
+                        bounceArena(pos, { x: 0, z: 0 }, this.center, this.radius);
+                        this.root.position.x = pos.x;
+                        this.root.position.z = pos.z;
+                    }
+                    return;
+                }
+                this.root.position.y = 0.9;      // slumped against the wall
+                this.canHit = true;
+                this.shielded = false;
+                if (this.weak) this.weak.material.emissiveIntensity = 3.4;
+            }
+            return;
+        }
+        if (player && this.actionCd <= 0) {
+            const dx = player.root.position.x - this.root.position.x;
+            const dz = player.root.position.z - this.root.position.z;
+            const n = Math.hypot(dx, dz) || 1;
+            const dir = { x: dx / n, z: dz / n };
+            this.startAction({
+                name: 'charge',
+                windup: 0.8,
+                recover: this.phase >= 3 ? 1.0 : 1.5,
+                cooldown: this.phase >= 3 ? 1.6 : 2.6,
+                aim: () => ({
+                    x: this.root.position.x, z: this.root.position.z,
+                    radius: this.radius * 2, shape: 'line', dir, width: 2.0,
+                    color: 0xffa040,
+                }),
+                onWindup: () => { sfx.whoosh(); },
+                strike: () => {
+                    // Launch the ram; the dash itself plays out over the
+                    // recovery so it crosses real ground the player can leave.
+                    this._dash = { dir, left: this.radius * 1.8, hit: false };
+                    this.root.position.y = 1.1;
+                    // Send it off at a fresh angle once it peels off the wall.
+                    const spd = Math.hypot(this.vx, this.vz) || 5;
+                    const ang = Math.atan2(-dir.z, -dir.x) + (Math.random() - 0.5);
+                    this.vx = Math.cos(ang) * spd;
+                    this.vz = Math.sin(ang) * spd;
+                },
+                onRecover: () => { this.root.position.y = 1.2; },
+            });
+            return;
+        }
         let nx = this.root.position.x + this.vx * dt;
         let nz = this.root.position.z + this.vz * dt;
         const vel = { x: this.vx, z: this.vz };

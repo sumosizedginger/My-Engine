@@ -33,8 +33,13 @@ export function applyHit(defender, move, attacker) {
         if (defender.onBlocked) defender.onBlocked(attacker, move);
         return { killed: false, damage: 0, blocked: true };
     }
-    // C3: Edge upgrade — attacker-side damage multiplier
-    const dmg = (move.damage != null ? move.damage : 1) * ((attacker && attacker.damageMult) || 1);
+    // C3: Edge upgrade — attacker-side damage multiplier.
+    // `vulnerableMult` is the defender side: a boss recovering from a committed
+    // attack takes double. Punishing the opening is what makes reading the
+    // wind-up worth doing instead of just mashing whenever you are in range.
+    const dmg = (move.damage != null ? move.damage : 1)
+        * ((attacker && attacker.damageMult) || 1)
+        * (defender.vulnerableMult || 1);
     if (defender.hp == null) defender.hp = 1;
     // Notify before HP mutation so handlers can still cancel via shielded re-check
     if (defender.onHit) defender.onHit(dmg, attacker, move);

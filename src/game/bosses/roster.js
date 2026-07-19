@@ -1,7 +1,7 @@
 // All 14 narrative bosses — unique multi-phase arena mechanics.
 
 import * as THREE from 'three';
-import { BossBase, moveToward, bounceArena } from './base.js';
+import { BossBase, moveToward, bounceArena, circleStrafe } from './base.js';
 import { sfx } from '../../audio/synth.js';
 import { ABYSS_COLORS, CRUST_COLORS } from '../assets/palettes.js';
 import { DestructibleVoxelMesh } from '../world/destructible-voxel-mesh.js';
@@ -43,7 +43,6 @@ export class CryptWarden extends BossBase {
     }
     tickAI(dt, player) {
         if (!player) return;
-        this.slamCd -= dt;
         // Wake when player near
         const d = Math.hypot(
             player.root.position.x - this.root.position.x,
@@ -59,25 +58,31 @@ export class CryptWarden extends BossBase {
         const dx = player.root.position.x - this.root.position.x;
         const dz = player.root.position.z - this.root.position.z;
         this.root.rotation.y = Math.atan2(dx, dz);
-        this.blade.rotation.z = Math.sin(this.t * 3) * 0.3;
-        if (this.slamCd <= 0 && d < 9) {
-            this.slamCd = this.phase >= 2 ? 1.5 : 2.4;
-            this._slamT = 0.7;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.2, 0.7, 0xffc040);
-            this._slamPos = { x: player.root.position.x, z: player.root.position.z };
+        if (this.busy) {
+            // Blade held overhead through the wind-up, dropped during recovery:
+            // the posture alone should tell you which half of the loop this is.
+            this.blade.rotation.z = this.staggered ? 1.4 : -0.2;
+            return;
         }
-        if (this._slamT > 0) {
-            this._slamT -= dt;
-            if (this._slamT <= 0 && this._slamPos) {
-                const pd = Math.hypot(
-                    player.root.position.x - this._slamPos.x,
-                    player.root.position.z - this._slamPos.z
-                );
-                if (pd < 2.4) {
-                    player.health.damage(this.phase >= 2 ? 2 : 1, 0.5);
-                    sfx.stomp();
-                } else sfx.block();
-            }
+        this.blade.rotation.z = Math.sin(this.t * 3) * 0.3;
+        if (this.actionCd <= 0 && d < 9) {
+            this.startAction({
+                name: 'slam',
+                windup: this.phase >= 2 ? 0.6 : 0.75,
+                recover: this.phase >= 2 ? 0.8 : 1.1,
+                cooldown: this.phase >= 2 ? 0.9 : 1.5,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z,
+                    radius: 2.4, color: 0xffc040,
+                }),
+                strike: (p, aim) => {
+                    if (this.inBlast(p, aim.x, aim.z, 2.4)) {
+                        p.health.damage(this.phase >= 2 ? 2 : 1, 0.5);
+                        sfx.stomp();
+                    } else sfx.block();
+                },
+            });
+            return;
         }
         // Slow stalk
         if (d > 2) moveToward(this.root.position, player.root.position, this.phase >= 2 ? 2.4 : 1.6, dt);
@@ -160,18 +165,58 @@ export class TriCompiler {
             this.phase = 2;
             sfx.phase();
         }
-        const orbit = this.phase >= 2 ? 1.2 : 0.4;
+
+        // ── Sweep cycle ─────────────────────────────────────────────────────
+        // The trio hunts as a unit: it widens its ring until the beam net is
+        // about to cross the player, holds (the beams flare white — that is
+        // the wind-up), sweeps, then browns out. During the brown-out the
+        // cores sink to head height and take double. Before this the ring
+        // spun at a fixed radius forever and the beams only ever hurt you if
+        // you happened to walk into one.
+        this.cycleT = (this.cycleT || 0) + dt;
+        const period = this.phase >= 2 ? 4.2 : 5.6;
+        const u = (this.cycleT % period) / period;
+        const charging = u > 0.55 && u < 0.72;
+        const sweeping = u >= 0.72 && u < 0.82;
+        const spent = u >= 0.82;
+        this.stage = spent ? 'recover' : charging ? 'windup' : sweeping ? 'strike' : 'pattern';
+
+        // The whole assembly drifts onto the player. Tying the ring to each
+        // core's spawn point was the flaw: the trio hung over one fixed spot
+        // for the entire fight, so standing anywhere else made it harmless.
+        const c0 = this.cores.find((c) => c.state.current !== 'DEAD');
+        if (!this.hub) {
+            this.hub = c0
+                ? { x: c0.home.x, z: c0.home.z }
+                : { x: 0, z: 0 };
+        }
+        if (player && !spent) {
+            const rate = Math.min(1, dt * (this.phase >= 2 ? 0.5 : 0.32));
+            this.hub.x += (player.root.position.x - this.hub.x) * rate;
+            this.hub.z += (player.root.position.z - this.hub.z) * rate;
+        }
+        const want = this.phase >= 2 ? 3.4 : 4.2;
+        this.ringR = this.ringR == null ? want : this.ringR;
+        if (!spent) this.ringR += (want - this.ringR) * Math.min(1, dt * 1.1);
+
+        const spin = spent ? 0.15 : 0.6;
         for (let i = 0; i < this.cores.length; i++) {
             const c = this.cores[i];
             if (c.state.current === 'DEAD') continue;
-            const ang = this.t * (0.6 + i * 0.15) + i * (Math.PI * 2 / 3);
-            c.mesh.position.x = c.home.x + Math.cos(ang) * orbit * 1.5;
-            c.mesh.position.z = c.home.z + Math.sin(ang) * orbit * 1.5;
-            c.mesh.position.y = c.home.y + Math.sin(this.t * 2 + i) * 0.25;
+            const ang = this.t * spin + i * (Math.PI * 2 / 3);
+            c.mesh.position.x = this.hub.x + Math.cos(ang) * this.ringR;
+            c.mesh.position.z = this.hub.z + Math.sin(ang) * this.ringR;
+            c.mesh.position.y = spent
+                ? 1.15 + Math.sin(this.t * 3 + i) * 0.08   // sunk to head height
+                : c.home.y + Math.sin(this.t * 2 + i) * 0.25;
             c.mesh.rotation.y += dt * (1 + i * 0.3);
-            c.mesh.material.emissiveIntensity = 1.0 + Math.sin(this.t * 4 + i) * 0.5;
-            // Beam damage between living cores
-            if (player && !player.health?.dead && this.phase >= 2) {
+            c.mesh.material.emissiveIntensity = charging
+                ? 2.6 + Math.sin(this.t * 22) * 0.9
+                : spent ? 0.35 : 1.0 + Math.sin(this.t * 4 + i) * 0.5;
+            // Open window: spent cores take double and stop shielding.
+            c.vulnerableMult = spent ? 2 : 1;
+            // Beams only bite on the sweep — the rest of the cycle is a read.
+            if (sweeping && player && !player.health?.dead) {
                 const next = this.cores[(i + 1) % this.cores.length];
                 if (next.state.current !== 'DEAD') {
                     if (pointNearSegment(
@@ -200,6 +245,13 @@ export class TriCompiler {
                 continue;
             }
             line.visible = true;
+            // The net is the telegraph: it flares white while charging and
+            // dims to nothing once spent, so "when is it live" is readable
+            // without a HUD.
+            line.material.color.setHex(this.stage === 'windup' ? 0xffffff : 0x40e0ff);
+            line.material.opacity = this.stage === 'windup' ? 1
+                : this.stage === 'strike' ? 0.9
+                    : this.stage === 'recover' ? 0.15 : 0.5;
             const pos = line.geometry.attributes.position.array;
             pos[0] = a.mesh.position.x; pos[1] = a.mesh.position.y; pos[2] = a.mesh.position.z;
             pos[3] = b.mesh.position.x; pos[4] = b.mesh.position.y; pos[5] = b.mesh.position.z;
@@ -311,11 +363,14 @@ export class ProxyBoss extends BossBase {
                 this._teleportAmongClones();
             }
         }
-        // Soft orbit only in phase 1; later phases hold post-teleport spots with drift
+        // Phase 1: circle the player, not the arena. The Proxy is a duellist —
+        // it keeps its distance and looks for an angle. It used to run a fixed
+        // orbit about the room centre and never once looked at where you were.
         if (this.phase < 2) {
-            const ang = this.t * 0.5;
-            this.root.position.x = this.home.x + Math.cos(ang) * (2 + this.phase);
-            this.root.position.z = this.home.z + Math.sin(ang) * (2 + this.phase * 0.5);
+            if (player && !this.busy) {
+                circleStrafe(this.root.position, player, dt,
+                    { speed: 3.2, spin: 0.8, close: 1.0, minRadius: 2.2 });
+            }
             this.root.position.y = 1.5 + Math.sin(this.t * 2) * 0.3;
         } else {
             this.root.position.y = 1.5 + Math.sin(this.t * 2) * 0.25;
@@ -339,23 +394,25 @@ export class ProxyBoss extends BossBase {
                 c.rotation.y += dt;
             }
         }
-        if (player && this.castCd <= 0) {
-            this.castCd = this.phase >= 3 ? 1.1 : 1.8;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.0, 0.65, 0xc084fc);
-            this._bolt = { x: player.root.position.x, z: player.root.position.z, t: 0.65 };
-        }
-        if (this._bolt) {
-            this._bolt.t -= dt;
-            if (this._bolt.t <= 0) {
-                if (player && Math.hypot(
-                    player.root.position.x - this._bolt.x,
-                    player.root.position.z - this._bolt.z
-                ) < 2.2) {
-                    player.health.damage(this.phase, 0.5);
-                    sfx.phase();
-                }
-                this._bolt = null;
-            }
+        if (player && this.actionCd <= 0 && !this.busy) {
+            this.startAction({
+                name: 'bolt',
+                windup: this.phase >= 3 ? 0.5 : 0.65,
+                recover: this.phase >= 3 ? 0.7 : 1.0,
+                cooldown: this.phase >= 3 ? 0.8 : 1.3,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z,
+                    radius: 2.2, color: 0xc084fc,
+                }),
+                onWindup: () => { this.ring.material.emissiveIntensity = 3.2; },
+                strike: (p, aim) => {
+                    if (this.inBlast(p, aim.x, aim.z, 2.2)) {
+                        p.health.damage(this.phase, 0.5);
+                        sfx.phase();
+                    }
+                },
+                onRecover: () => { this.ring.material.emissiveIntensity = 1.8; },
+            });
         }
     }
     dispose() {
@@ -401,39 +458,64 @@ export class ObsidianArachnid extends BossBase {
         for (let i = 0; i < this.legs.length; i++) {
             this.legs[i].rotation.x = Math.sin(this.t * 6 + i) * 0.35;
         }
-        this.leapCd -= dt;
         if (!player) return;
-        if (this._leapT > 0) {
-            this._leapT -= dt;
-            this.shielded = false;
-            this.root.position.y = 1.2 + Math.sin((1 - this._leapT / 0.9) * Math.PI) * 2.5;
-            if (this._leapT <= 0) {
-                this.shielded = this.phase < 2;
-                this.root.position.y = 1.0;
-                this.root.position.x = this._leapTarget.x;
-                this.root.position.z = this._leapTarget.z;
-                sfx.stomp();
-                if (Math.hypot(
-                    player.root.position.x - this.root.position.x,
-                    player.root.position.z - this.root.position.z
-                ) < 2.5) player.health.damage(2, 0.4);
+        if (this.busy) {
+            // Airborne through the wind-up, crumpled on the floor through the
+            // recovery. Its armoured back is only off the ground while it is
+            // in the air, and its legs are folded under it once it lands.
+            const a = this.action;
+            if (a.stage === 'windup') {
+                this.root.position.y = 1.2 + Math.sin((1 - a.t / a.windup) * Math.PI) * 2.5;
+            } else {
+                this.root.position.y = 0.85;
             }
             return;
         }
         this.shielded = this.phase < 2;
-        moveToward(this.root.position, player.root.position, this.phase >= 2 ? 3.2 : 2.2, dt);
         this.root.position.y = 1.0;
         const d = Math.hypot(
             player.root.position.x - this.root.position.x,
             player.root.position.z - this.root.position.z
         );
-        if (this.leapCd <= 0 && d > 3 && d < 12) {
-            this.leapCd = this.phase >= 2 ? 2.0 : 3.2;
-            this._leapT = 0.9;
-            this._leapTarget = { x: player.root.position.x, z: player.root.position.z };
-            this.telegraphAt(this._leapTarget.x, this._leapTarget.z, 2.4, 0.9, 0xa040ff);
-            this.shielded = false;
+        // The leap used to need d > 3, so a player who simply walked up and
+        // stayed there was never leapt at — and since its back is armoured and
+        // the leap was the only opening, the fight deadlocked: infinite swings,
+        // zero damage, forever. It now also leaps to make space when crowded.
+        if (this.actionCd <= 0 && d < 12) {
+            const crowded = d <= 3;
+            this.startAction({
+                name: crowded ? 'recoil-leap' : 'leap',
+                windup: 0.9,
+                recover: this.phase >= 2 ? 0.9 : 1.3,
+                cooldown: this.phase >= 2 ? 1.4 : 2.2,
+                aim: (p) => {
+                    // Crowded: hop backwards over the player's head and land
+                    // clear. Otherwise: come down on top of them.
+                    const px = p.root.position.x, pz = p.root.position.z;
+                    if (!crowded) return { x: px, z: pz, radius: 2.4, color: 0xa040ff };
+                    const dx = this.root.position.x - px, dz = this.root.position.z - pz;
+                    const n = Math.hypot(dx, dz) || 1;
+                    return {
+                        x: px + (dx / n) * 5, z: pz + (dz / n) * 5,
+                        radius: 2.4, color: 0xa040ff,
+                    };
+                },
+                onWindup: () => { this.shielded = false; },
+                strike: (p, aim) => {
+                    this.root.position.x = aim.x;
+                    this.root.position.z = aim.z;
+                    this.root.position.y = 0.85;
+                    sfx.stomp();
+                    if (this.inBlast(p, aim.x, aim.z, 2.5)) p.health.damage(2, 0.4);
+                },
+                onRecover: () => {
+                    this.root.position.y = 1.0;
+                    this.shielded = this.phase < 2;
+                },
+            });
+            return;
         }
+        moveToward(this.root.position, player.root.position, this.phase >= 2 ? 3.2 : 2.2, dt);
     }
 }
 
@@ -470,35 +552,39 @@ export class HydroidCloud extends BossBase {
                 Math.sin(a) * spread * 0.7
             );
         }
-        this.pulseCd -= dt;
-        if (player) {
-            // Drift toward player
-            moveToward(this.root.position, player.root.position, 1.4 + this.phase * 0.4, dt);
-            this.root.position.y = 1.8 + Math.sin(this.t * 1.5) * 0.4;
-            if (this.pulseCd <= 0) {
-                this.pulseCd = this.phase >= 2 ? 1.6 : 2.5;
-                this.telegraphAt(this.root.position.x, this.root.position.z, 3.2, 0.7, 0x40e0ff);
-                this._pulse = 0.7;
-            }
-            if (this._pulse > 0) {
-                this._pulse -= dt;
-                if (this._pulse <= 0) {
-                    const d = Math.hypot(
-                        player.root.position.x - this.root.position.x,
-                        player.root.position.z - this.root.position.z
-                    );
-                    if (d < 3.5) {
-                        player.health.damage(1, 0.5);
-                        // knock slightly
-                        const dx = player.root.position.x - this.root.position.x;
-                        const dz = player.root.position.z - this.root.position.z;
-                        const n = Math.hypot(dx, dz) || 1;
-                        player.root.position.x += (dx / n) * 1.5;
-                        player.root.position.z += (dz / n) * 1.5;
+        if (!player) return;
+        if (this.busy) {
+            // Drawn tight to burst, then scattered and slack while it re-gathers.
+            this.root.position.y = this.staggered ? 1.2 : 1.8 + Math.sin(this.t * 6) * 0.15;
+            return;
+        }
+        // Drift toward player
+        moveToward(this.root.position, player.root.position, 1.4 + this.phase * 0.4, dt);
+        this.root.position.y = 1.8 + Math.sin(this.t * 1.5) * 0.4;
+        if (this.actionCd <= 0) {
+            this.startAction({
+                name: 'pulse',
+                windup: this.phase >= 2 ? 0.6 : 0.75,
+                recover: this.phase >= 2 ? 1.0 : 1.4,
+                cooldown: this.phase >= 2 ? 1.0 : 1.6,
+                // The burst is centred on the cloud, so the dodge is "get out
+                // from under it" rather than "step off a marked tile".
+                aim: () => ({
+                    x: this.root.position.x, z: this.root.position.z,
+                    radius: 3.4, color: 0x40e0ff,
+                }),
+                strike: (p) => {
+                    const dx = p.root.position.x - this.root.position.x;
+                    const dz = p.root.position.z - this.root.position.z;
+                    const n = Math.hypot(dx, dz) || 1;
+                    if (n < 3.5) {
+                        p.health.damage(1, 0.5);
+                        p.root.position.x += (dx / n) * 1.5;
+                        p.root.position.z += (dz / n) * 1.5;
                         sfx.whoosh();
                     }
-                }
-            }
+                },
+            });
         }
     }
 }
@@ -527,47 +613,46 @@ export class SkeletalMantis extends BossBase {
         this.presenceScale(1.1);
     }
     tickAI(dt, player) {
-        this.sliceCd -= dt;
-        this.scytheL.rotation.z = -0.5 + Math.sin(this.t * 4) * 0.2;
-        this.scytheR.rotation.z = 0.5 - Math.sin(this.t * 4) * 0.2;
         if (!player) return;
         const dx = player.root.position.x - this.root.position.x;
         const dz = player.root.position.z - this.root.position.z;
         this.root.rotation.y = Math.atan2(dx, dz);
-        moveToward(this.root.position, player.root.position, this.phase >= 2 ? 2.8 : 2.0, dt);
         this.root.position.y = 1.3;
+        if (this.busy) {
+            // Scythes cocked wide, then buried in the floor and stuck there.
+            const open = this.staggered ? 0.1 : 1.5;
+            this.scytheL.rotation.z = -open;
+            this.scytheR.rotation.z = open;
+            return;
+        }
+        this.scytheL.rotation.z = -0.5 + Math.sin(this.t * 4) * 0.2;
+        this.scytheR.rotation.z = 0.5 - Math.sin(this.t * 4) * 0.2;
         const d = Math.hypot(dx, dz);
-        if (this.sliceCd <= 0 && d < 6) {
-            this.sliceCd = this.phase >= 2 ? 1.3 : 2.1;
-            this._sliceT = 0.55;
-            // Wide slash telegraph in front
+        if (this.actionCd <= 0 && d < 6) {
             const fx = Math.sin(this.root.rotation.y);
             const fz = Math.cos(this.root.rotation.y);
-            this.telegraphAt(
-                this.root.position.x + fx * 2.2,
-                this.root.position.z + fz * 2.2,
-                2.8, 0.55, 0xffe0a0
-            );
-            this._sliceDir = { x: fx, z: fz };
+            this.startAction({
+                name: 'slice',
+                windup: 0.55,
+                recover: this.phase >= 2 ? 0.85 : 1.2,
+                cooldown: this.phase >= 2 ? 0.8 : 1.4,
+                // A cone, not a disc: the read is "get behind it", which is a
+                // different lesson from every other boss's "step aside".
+                aim: () => ({
+                    x: this.root.position.x, z: this.root.position.z,
+                    radius: 4.5, shape: 'cone', dir: { x: fx, z: fz },
+                    color: 0xffe0a0,
+                }),
+                strike: (p) => {
+                    if (this.inCone(p, this.root.position, { x: fx, z: fz }, 4.5, 1.2)) {
+                        p.health.damage(this.phase >= 2 ? 2 : 1, 0.4);
+                        sfx.slap();
+                    }
+                },
+            });
+            return;
         }
-        if (this._sliceT > 0) {
-            this._sliceT -= dt;
-            this.scytheL.rotation.z = -1.5;
-            this.scytheR.rotation.z = 1.5;
-            if (this._sliceT <= 0 && player) {
-                // Cone in front
-                const toP = {
-                    x: player.root.position.x - this.root.position.x,
-                    z: player.root.position.z - this.root.position.z,
-                };
-                const pd = Math.hypot(toP.x, toP.z) || 1;
-                const dot = (toP.x * this._sliceDir.x + toP.z * this._sliceDir.z) / pd;
-                if (pd < 4.5 && dot > 0.35) {
-                    player.health.damage(this.phase >= 2 ? 2 : 1, 0.4);
-                    sfx.slap();
-                }
-            }
-        }
+        moveToward(this.root.position, player.root.position, this.phase >= 2 ? 2.8 : 2.0, dt);
     }
 }
 
@@ -590,7 +675,11 @@ export class PhantasmBoss extends BossBase {
     tickAI(dt, player) {
         this.phaseTimer += dt;
         const cycle = this.phase >= 2 ? 1.8 : 2.5;
-        this.manifested = Math.floor(this.phaseTimer / cycle) % 2 === 0;
+        // Committing to an attack pins it in the world: it cannot dematerialize
+        // mid-swing, and it cannot escape its own recovery by going incorporeal.
+        // Without this the stagger window would silently do nothing whenever it
+        // happened to land on an out-of-phase beat.
+        this.manifested = this.busy || Math.floor(this.phaseTimer / cycle) % 2 === 0;
         this.canHit = this.manifested;
         this.hitRadius = this.manifested ? (this.baseHitRadius || 0.9) : 0;
         this.mesh.material.opacity = this.manifested ? 0.92 : 0.12;
@@ -602,27 +691,40 @@ export class PhantasmBoss extends BossBase {
             // Mirror-chase relative to the arena home, not the world origin
             const rx = player.root.position.x - this.home.x;
             const rz = player.root.position.z - this.home.z;
+            // Mirror-chase, but always closing. The mirrored target is a point
+            // near the arena's centre, so a player standing anywhere off-centre
+            // was mirrored to somewhere the Phantasm was already sitting — it
+            // would hover there, out of reach, and the fight never resolved.
+            // The mirror now sets the ANGLE it approaches from; the distance
+            // always shrinks.
             const target = this.phase >= 2
                 ? { x: this.home.x - rx * 0.4, z: this.home.z - rz * 0.4 - 2 }
                 : { x: this.home.x + rx * 0.3, z: this.home.z + rz * 0.3 - 3 };
-            moveToward(this.root.position, target, 2.5, dt);
-            if (this.mirrorCd <= 0) {
-                this.mirrorCd = 2.4;
-                this.telegraphAt(player.root.position.x, player.root.position.z, 1.8, 0.5, 0xc084fc);
-                this._echo = { x: player.root.position.x, z: player.root.position.z, t: 0.5 };
+            if (!this.busy) {
+                moveToward(this.root.position, target, 2.5, dt);
+                circleStrafe(this.root.position, player, dt,
+                    { speed: 2.2, spin: 0.9, close: 1.4, minRadius: 1.6 });
             }
-            if (this._echo) {
-                this._echo.t -= dt;
-                if (this._echo.t <= 0) {
-                    if (Math.hypot(
-                        player.root.position.x - this._echo.x,
-                        player.root.position.z - this._echo.z
-                    ) < 2) {
-                        player.health.damage(1, 0.6);
-                        sfx.phase();
-                    }
-                    this._echo = null;
-                }
+            if (this.actionCd <= 0 && !this.busy) {
+                this.startAction({
+                    name: 'echo',
+                    windup: 0.5,
+                    // The Phantasm's opening is doubled up: it cannot slip back
+                    // out of phase while it is recovering, so a read echo is
+                    // worth far more than waiting out the manifest cycle.
+                    recover: 1.2,
+                    cooldown: 1.2,
+                    aim: (p) => ({
+                        x: p.root.position.x, z: p.root.position.z,
+                        radius: 2.0, color: 0xc084fc,
+                    }),
+                    strike: (p, aim) => {
+                        if (this.inBlast(p, aim.x, aim.z, 2.0)) {
+                            p.health.damage(1, 0.6);
+                            sfx.phase();
+                        }
+                    },
+                });
             }
         }
     }
@@ -660,37 +762,35 @@ export class FrostAndFuel extends BossBase {
         this.frost.position.y = Math.sin(this.t * 2) * 0.3;
         this.fuel.position.y = Math.sin(this.t * 2 + 1) * 0.3;
         this.root.rotation.y += dt * 0.4;
-        this.castCd -= dt;
-        if (player && this.castCd <= 0) {
-            this.castCd = this.phase >= 2 ? 1.4 : 2.2;
-            const color = this.mode === 'frost' ? 0x40e0ff : 0xff6020;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.3, 0.7, color);
-            this._cast = {
-                x: player.root.position.x, z: player.root.position.z, t: 0.7,
-                mode: this.mode,
-            };
-        }
-        if (this._cast) {
-            this._cast.t -= dt;
-            if (this._cast.t <= 0 && player) {
-                if (Math.hypot(
-                    player.root.position.x - this._cast.x,
-                    player.root.position.z - this._cast.z
-                ) < 2.5) {
-                    player.health.damage(this._cast.mode === 'fuel' ? 2 : 1, 0.45);
-                    if (this._cast.mode === 'frost') {
+        if (player && this.actionCd <= 0 && !this.busy) {
+            const mode = this.mode;
+            this.startAction({
+                name: `cast-${mode}`,
+                windup: 0.7,
+                recover: this.phase >= 2 ? 0.9 : 1.3,
+                cooldown: this.phase >= 2 ? 0.9 : 1.6,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z, radius: 2.5,
+                    color: mode === 'frost' ? 0x40e0ff : 0xff6020,
+                }),
+                strike: (p, aim) => {
+                    if (!this.inBlast(p, aim.x, aim.z, 2.5)) return;
+                    p.health.damage(mode === 'fuel' ? 2 : 1, 0.45);
+                    if (mode === 'frost') {
                         // Slow: temporary friction ice feel
-                        player.setFriction?.('ice');
-                        setTimeout(() => player.setFriction?.('default'), 2000);
+                        p.setFriction?.('ice');
+                        setTimeout(() => p.setFriction?.('default'), 2000);
                     }
                     sfx.kick();
-                }
-                this._cast = null;
-            }
+                },
+            });
         }
-        // Slow orbit around the arena home
-        this.root.position.x = this.home.x + Math.sin(this.t * 0.4) * 3;
-        this.root.position.z = this.home.z + Math.cos(this.t * 0.4) * 2;
+        // Keep its distance from the player rather than tracing a fixed ellipse
+        // about the room centre — the pair should feel like it is circling you.
+        if (player && !this.busy) {
+            circleStrafe(this.root.position, player, dt,
+                { speed: 2.6, spin: 0.55, close: 0.9, minRadius: 2.4 });
+        }
         this.root.position.y = 1.6;
     }
 }
@@ -742,36 +842,42 @@ export class SludgeGolem extends BossBase {
             return true;
         });
         if (!player) return;
+        if (this.busy) {
+            // Slumps as it lands: a puddle for a moment before it re-forms.
+            this.root.position.y = this.staggered ? 1.0 : 1.4 + Math.sin(this.t * 8) * 0.2;
+            return;
+        }
         moveToward(this.root.position, player.root.position, this.phase >= 2 ? 2.0 : 1.2, dt);
         this.root.position.y = 1.4 + Math.sin(this.t) * 0.15;
-        if (this.lungeCd <= 0) {
-            this.lungeCd = this.phase >= 2 ? 2.0 : 3.2;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.0, 0.6, 0x80a040);
-            this._lunge = { x: player.root.position.x, z: player.root.position.z, t: 0.6 };
-        }
-        if (this._lunge) {
-            this._lunge.t -= dt;
-            if (this._lunge.t <= 0) {
-                this.root.position.x = this._lunge.x;
-                this.root.position.z = this._lunge.z;
-                sfx.heave();
-                // Drop pool
-                const m = new THREE.Mesh(
-                    new THREE.CircleGeometry(2, 20),
-                    new THREE.MeshBasicMaterial({
-                        color: 0x4a7020, transparent: true, opacity: 0.45, side: THREE.DoubleSide,
-                    })
-                );
-                m.rotation.x = -Math.PI / 2;
-                m.position.set(this._lunge.x, 0.1, this._lunge.z);
-                this.scene.add(m);
-                this.pools.push({ mesh: m, x: this._lunge.x, z: this._lunge.z, life: 4, _dot: 0 });
-                if (player && Math.hypot(
-                    player.root.position.x - this._lunge.x,
-                    player.root.position.z - this._lunge.z
-                ) < 2.2) player.health.damage(2, 0.4);
-                this._lunge = null;
-            }
+        if (this.actionCd <= 0) {
+            this.startAction({
+                name: 'lunge',
+                windup: 0.6,
+                recover: this.phase >= 2 ? 1.0 : 1.5,
+                cooldown: this.phase >= 2 ? 1.2 : 1.8,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z,
+                    radius: 2.2, color: 0x80a040,
+                }),
+                strike: (p, aim) => {
+                    this.root.position.x = aim.x;
+                    this.root.position.z = aim.z;
+                    sfx.heave();
+                    // Drop pool
+                    const m = new THREE.Mesh(
+                        new THREE.CircleGeometry(2, 20),
+                        new THREE.MeshBasicMaterial({
+                            color: 0x4a7020, transparent: true, opacity: 0.45, side: THREE.DoubleSide,
+                        })
+                    );
+                    m.rotation.x = -Math.PI / 2;
+                    m.position.set(aim.x, this.floorY + 0.1, aim.z);
+                    this.scene.add(m);
+                    this.pools.push({ mesh: m, x: aim.x, z: aim.z, life: 4, _dot: 0 });
+                    if (this.inBlast(p, aim.x, aim.z, 2.2)) p.health.damage(2, 0.4);
+                },
+                onRecover: () => { this.root.position.y = 1.4; },
+            });
         }
     }
     dispose() {
@@ -811,32 +917,67 @@ export class MagmaWyrm extends BossBase {
         this.trails = [];
     }
     tickAI(dt, player) {
+        // ── Circle, then breathe ────────────────────────────────────────────
+        // The Wyrm swims a ring AROUND THE PLAYER and periodically stops to
+        // breathe a cone of fire down the line between them; the breath leaves
+        // it slack and coiled on the floor. It used to trace a figure-8 about
+        // the room centre that was byte-identical no matter where you stood,
+        // dribbling fire on its own track — you could stand still and win.
         this.pathT += dt * (this.phase >= 2 ? 1.4 : 0.9);
-        const R = 5 + this.phase;
-        // Head follows a figure-8 around the arena home
-        const hx = Math.sin(this.pathT) * R;
-        const hz = Math.sin(this.pathT * 2) * (R * 0.5);
-        for (let i = 0; i < this.segs.length; i++) {
-            if (i === 0) {
-                this.segs[i].position.set(0, 0, 0);
-                this.root.position.set(
-                    this.home.x + hx,
-                    1.3 + Math.sin(this.pathT * 3) * 0.3,
-                    this.home.z + hz
-                );
-            } else {
-                // local chain trails the same path, offset in phase
-                const ang = this.pathT - i * 0.35;
-                this.segs[i].position.set(
-                    Math.sin(ang) * R - hx,
-                    -i * 0.05,
-                    Math.sin(ang * 2) * (R * 0.5) - hz
-                );
-            }
+        if (player && !this.busy) {
+            circleStrafe(this.root.position, player, dt, {
+                speed: this.phase >= 2 ? 6.5 : 4.5,
+                spin: this.phase >= 2 ? 1.0 : 0.7,
+                close: 1.6, minRadius: 3,
+            });
+        }
+        this.root.position.y = this.staggered
+            ? 1.0
+            : 1.3 + Math.sin(this.pathT * 3) * 0.3;
+        // Body chain trails the head through the world.
+        this._wake = this._wake || [];
+        this._wake.unshift({ x: this.root.position.x, z: this.root.position.z });
+        if (this._wake.length > this.segs.length * 8 + 2) this._wake.pop();
+        for (let i = 1; i < this.segs.length; i++) {
+            const s = this._wake[Math.min(this._wake.length - 1, i * 7)];
+            if (!s) continue;
+            // Segment positions are LOCAL to the group whose origin is the head.
+            this.segs[i].position.set(
+                s.x - this.root.position.x, -i * 0.05, s.z - this.root.position.z
+            );
         }
         // Align hit to head world pos (radii track the 1.65 presence scale)
         this.hitRadius = 1.65;
-        this.fireCd -= dt;
+
+        if (player && this.actionCd <= 0 && !this.busy) {
+            const dx = player.root.position.x - this.root.position.x;
+            const dz = player.root.position.z - this.root.position.z;
+            const n = Math.hypot(dx, dz) || 1;
+            const dir = { x: dx / n, z: dz / n };
+            this.startAction({
+                name: 'breath',
+                windup: 0.75,
+                recover: this.phase >= 2 ? 1.1 : 1.6,
+                cooldown: this.phase >= 2 ? 1.2 : 2.0,
+                aim: () => ({
+                    x: this.root.position.x, z: this.root.position.z,
+                    radius: 8, shape: 'cone', dir, color: 0xff6020,
+                }),
+                strike: (p) => {
+                    if (this.inCone(p, this.root.position, dir, 8, 0.45)) {
+                        p.health.damage(2, 0.45);
+                        sfx.stomp();
+                    }
+                    // Lay a burning lane along the breath.
+                    for (let k = 1; k <= 5; k++) {
+                        this._dropTrail(
+                            this.root.position.x + dir.x * k * 1.5,
+                            this.root.position.z + dir.z * k * 1.5
+                        );
+                    }
+                },
+            });
+        }
         // Fire trail
         this.trails = this.trails.filter((tr) => {
             tr.life -= dt;
@@ -858,24 +999,21 @@ export class MagmaWyrm extends BossBase {
             }
             return true;
         });
-        if (this.fireCd <= 0) {
-            this.fireCd = this.phase >= 2 ? 0.9 : 1.6;
-            const m = new THREE.Mesh(
-                new THREE.CircleGeometry(1.3, 12),
-                new THREE.MeshBasicMaterial({
-                    color: 0xff6020, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
-                })
-            );
-            m.rotation.x = -Math.PI / 2;
-            m.position.set(this.root.position.x, 0.12, this.root.position.z);
-            this.scene.add(m);
-            this.trails.push({ mesh: m, x: this.root.position.x, z: this.root.position.z, life: 2.5, _cd: 0 });
-            this.telegraphAt(this.root.position.x, this.root.position.z, 1.5, 0.3, 0xff8040);
-        }
-        if (player) {
-            // Contact via head (tracks the 1.65 presence scale)
-            this.contactRadius = 2.4;
-        }
+        // Contact via head (tracks the 1.65 presence scale)
+        this.contactRadius = 2.4;
+    }
+    /** Lay one burning tile. Fire now comes only from the breath. */
+    _dropTrail(x, z) {
+        const m = new THREE.Mesh(
+            new THREE.CircleGeometry(1.3, 12),
+            new THREE.MeshBasicMaterial({
+                color: 0xff6020, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
+            })
+        );
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(x, this.floorY + 0.12, z);
+        this.scene.add(m);
+        this.trails.push({ mesh: m, x, z, life: 2.5, _cd: 0 });
     }
     dispose() {
         for (const tr of this.trails) {
@@ -909,31 +1047,49 @@ export class GumoiWitness extends BossBase {
     tickAI(dt, player, game) {
         this.mesh.rotation.x += dt * (0.5 + this.phase * 0.3);
         this.mesh.rotation.y += dt * (0.8 + this.phase * 0.2);
-        this.root.position.y = (this.phase >= 3 ? 5 : 9.2) + Math.sin(this.t * 2) * 0.5;
-        // Orbit around the arena home
-        const R = 2 + this.phase;
-        this.root.position.x = this.home.x + Math.cos(this.t * 0.7) * R;
-        this.root.position.z = this.home.z + Math.sin(this.t * 0.7) * R;
+        // ── Descend to strike ───────────────────────────────────────────────
+        // The Witness hovers out of reach and only comes down to cast — and it
+        // is still down, at head height, all through its recovery. That descent
+        // is the entire fight, because it is the one moment a sword can touch
+        // it.
+        //
+        // It previously sat at y≈9.2 permanently (y=5 in phase 3), which is
+        // 7 units above the player's head: the vertical gate in hitboxCheck
+        // rejected EVERY melee weapon at EVERY phase. The only thing that could
+        // hurt it was the Light Caster, and only because a ray move carries no
+        // `vertical` field — so the gate compared against undefined, produced
+        // NaN, and let the hit through by accident. The boss was unkillable
+        // with a sword and killable by a bug.
+        const HOVER = this.phase >= 3 ? 7.0 : 9.2;
+        const STRIKE_Y = 2.0;
+        const wantY = this.busy ? STRIKE_Y : HOVER + Math.sin(this.t * 2) * 0.5;
+        this.root.position.y += (wantY - this.root.position.y)
+            * Math.min(1, dt * (this.busy ? 7 : 2.5));
+        // Orbit the player, not the room's centre point.
+        if (player && !this.busy) {
+            circleStrafe(this.root.position, player, dt,
+                { speed: 3.4, spin: 0.7, close: 1.0, minRadius: 2 + this.phase * 0.4 });
+        }
         // Only override the level's base flicker while the fight is live
         if (player && game?.level) game.level.flicker = Math.min(1, 0.5 + this.flickerBoost + Math.sin(this.t * 5) * 0.15);
-        this.castCd -= dt;
-        if (player && this.castCd <= 0) {
-            this.castCd = this.phase >= 3 ? 1.0 : 1.8;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.1, 0.55, 0xc084fc);
-            this._bolt = { x: player.root.position.x, z: player.root.position.z, t: 0.55 };
-        }
-        if (this._bolt) {
-            this._bolt.t -= dt;
-            if (this._bolt.t <= 0 && player) {
-                if (Math.hypot(
-                    player.root.position.x - this._bolt.x,
-                    player.root.position.z - this._bolt.z
-                ) < 2.3) {
-                    player.health.damage(this.phase >= 2 ? 2 : 1, 0.4);
-                    sfx.phase();
-                }
-                this._bolt = null;
-            }
+        if (player && this.actionCd <= 0 && !this.busy) {
+            this.startAction({
+                name: 'bolt',
+                // Long enough to cover the drop, so the descent IS the tell.
+                windup: this.phase >= 3 ? 0.7 : 0.9,
+                recover: this.phase >= 3 ? 1.0 : 1.4,
+                cooldown: this.phase >= 3 ? 0.9 : 1.5,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z,
+                    radius: 2.3, color: 0xc084fc,
+                }),
+                strike: (p, aim) => {
+                    if (this.inBlast(p, aim.x, aim.z, 2.3)) {
+                        p.health.damage(this.phase >= 2 ? 2 : 1, 0.4);
+                        sfx.phase();
+                    }
+                },
+            });
         }
     }
 }
@@ -993,39 +1149,46 @@ export class LeviathanBoss extends BossBase {
             if (g === 1) player.physics.vy = (player.physics.vy || 0) + dt * 2.5;
             else if (g === 3 && this.phase >= 3) player.physics.vy = (player.physics.vy || 0) - dt * 4;
         }
-        // Orbit wobble in phase 2+
-        if (this.phase >= 2) {
-            this.root.position.x = this.home.x + Math.sin(this.t * 0.5) * (1 + this.phase);
-            this.root.position.z = this.home.z + Math.cos(this.t * 0.4) * (1 + this.phase * 0.5);
+        // Bear down on the player from the first phase. The Core used to be a
+        // statue until phase 2 and then wobble about a fixed point — the final
+        // boss of the campaign never once moved toward you.
+        if (player && !this.busy) {
+            circleStrafe(this.root.position, player, dt, {
+                speed: 1.6 + this.phase * 0.7,
+                spin: 0.3 + this.phase * 0.2,
+                close: 1.2, minRadius: 2.6,
+            });
         }
         for (let i = 0; i < this.decoys.length; i++) {
             const a = this.t * 0.9 + i * (Math.PI * 2 / Math.max(1, this.decoys.length));
             const R = 4 + this.phase;
+            // Around the CORE, not the world origin. Rooms sit at grid offsets
+            // (beat-14's arena is nowhere near 0,0), so the decoys were orbiting
+            // an empty point in another part of the dungeon entirely.
             this.decoys[i].position.set(
-                Math.cos(a) * R,
+                this.root.position.x + Math.cos(a) * R,
                 1.8 + Math.sin(this.t * 2 + i) * 0.6,
-                Math.sin(a) * R
+                this.root.position.z + Math.sin(a) * R
             );
             this.decoys[i].rotation.y += dt;
         }
-        this.slamCd -= dt;
-        if (player && this.slamCd <= 0) {
-            this.slamCd = this.phase >= 3 ? 1.6 : 3.0;
-            this.telegraphAt(player.root.position.x, player.root.position.z, 2.8, 0.8, 0x60ffe0);
-            this._slam = { x: player.root.position.x, z: player.root.position.z, t: 0.8 };
-        }
-        if (this._slam) {
-            this._slam.t -= dt;
-            if (this._slam.t <= 0 && player) {
-                if (Math.hypot(
-                    player.root.position.x - this._slam.x,
-                    player.root.position.z - this._slam.z
-                ) < 3.0) {
-                    player.health.damage(2, 0.35);
-                    sfx.stomp();
-                }
-                this._slam = null;
-            }
+        if (player && this.actionCd <= 0 && !this.busy) {
+            this.startAction({
+                name: 'slam',
+                windup: this.phase >= 3 ? 0.65 : 0.8,
+                recover: this.phase >= 3 ? 1.0 : 1.4,
+                cooldown: this.phase >= 3 ? 1.1 : 1.8,
+                aim: (p) => ({
+                    x: p.root.position.x, z: p.root.position.z,
+                    radius: 3.0, color: 0x60ffe0,
+                }),
+                strike: (p, aim) => {
+                    if (this.inBlast(p, aim.x, aim.z, 3.0)) {
+                        p.health.damage(2, 0.35);
+                        sfx.stomp();
+                    }
+                },
+            });
         }
         // True core pulses brighter than decoys
         this.mesh.material.emissiveIntensity = 1.5 + Math.sin(this.t * 5) * 0.6;

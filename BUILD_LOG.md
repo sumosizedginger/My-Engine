@@ -245,6 +245,31 @@ like A Link to the Past. All five closed.
 - **Correction to the Session 6 entry.** That session attributed the beat-01 "gold door won't open" report *entirely* to gamepad stick drift. The drift was real and did break the suite, but it was never the whole story: the door was independently impassable for every player, pad or no pad. A plausible root cause that explained the symptom was accepted without ever walking a player into that specific door. **Lesson: a confirmed bug that explains a symptom is not proof it is the only cause — reproduce the exact reported action, not an adjacent one.**
 - Suite **1053 → 1056/1056**.
 
+## Session 8 — boss fights (`feat(bosses)`)
+
+Reported by hand at the Sand Spur: *"This is not a very Zelda like fight, it literally just goes in a square. You need to assess all boss fights, treat them like a true Zelda boss fight."*
+
+**Assessment (measured, not read).** Two probes, each loading a level twice and parking the player at two different vantage points:
+- **8 of 14 bosses produced byte-identical paths regardless of where the player stood** (max divergence 0.00): beats 02, 03, 04, 05, 10, 12, 13, 14. Their movement was a pure function of the clock. **4 of them (02, 03, 04, 12) had no player-targeted attack at all** — the only way to be hurt was to walk into one. The Leviathan Core, the campaign's final boss, did not move until phase 2.
+- **beat-13 GUMOI Witness: 0 melee connections, 0 damage, from floor level, in every phase.** It hovers at y≈9.2 (y=5 in phase 3); the player's centre is y=1.95 and `hitboxCheck` rejects `|dy| > move.vertical + hitRadius` (≈2.7). It was killable *only* by the Light Caster — and only because `LIGHT_CASTER` is a `ray` move with no `vertical` field, so the gate evaluated `Math.abs(dy) > undefined + r` → `NaN` → false, and passed the hit through by accident. **Unkillable with a sword; killable by a bug.**
+- **beat-06 Obsidian Arachnid: 600 swings, 600 registered hits, 0 damage.** Armoured except mid-leap, and `leapCd` gated on `d > 3`, so standing next to it meant it never leapt, never opened, and never took a point of damage.
+- **No boss anywhere had a recovery window.** Attacks fired off bare cooldowns; hitting a boss was equally good at every instant, so there was no reason to read anything and no reward for having read it.
+
+**The fix — one grammar, applied to all 14.** `BossBase` gained a committed-action state machine: PATTERN → WINDUP (telegraph marks the ground, boss stops doing anything else) → STRIKE (resolved against where the player *is*, so stepping off always works) → **RECOVER** (motionless, haloed, `vulnerableMult = 2`). `applyHit` now honours a defender-side multiplier. Telegraphs gained shapes — ring, cone, lane — so different attacks teach different lessons.
+
+**Bugs found while doing it:**
+- Leviathan decoys orbited the **world origin**, not the Core — beat-14's arena is nowhere near (0,0), so they circled empty space in another part of the dungeon.
+- The Kinetic Core's new charge initially **teleported** to the far wall. A hit that never occupies the ground between here and there cannot be dodged or seen; it now travels.
+- A naive "orbit the player at radius R" made four bosses **literally uncatchable** — they backed off exactly as fast as the player approached. `circleStrafe` only ever shrinks its radius.
+- The Sand Spur first only surfaced within 1.6 units, so a player who kept walking was never attacked and never given an opening. It now also surfaces on a patience timer.
+- **`telegraphShape` drew every cone and lane rotated away from the attack it announced.** Caught by a spec that transforms the mesh's own vertices to world space and checks where the drawn mass sits — *not* by eye. A telegraph that lies is worse than none: the player is punished for reading it correctly. Same failure class as the Session 7 rings drawn a metre underground, rotated instead of buried.
+
+**Verification discipline.** The probe was wrong three times before it was right, and each time it was the probe that was wrong, not the game: (1) forcing `attackCd = 0` killed a 14 hp boss in under a second, before its first action could start, which read as "no window ever opens"; (2) teleporting the player to a fixed offset from the boss every tick put the Sand Spur on a treadmill it could never close; (3) a swing gate of `d < 2.2` was tighter than several bosses' standoff, scoring them "0 connections" when the bot simply never swung. **A red result on a new probe is a claim about the probe until proven otherwise.**
+
+**New specs (+84):** `tests/game/boss-grammar.spec.mjs` (the loop in isolation, plus drawn-telegraph orientation) and `tests/boss-quality-e2e.spec.mjs`, which asserts per boss what "it reaches 0 HP" cannot see — that it **reacts to where the player stands**, that it **opens a vulnerability window**, and that it **falls to a melee weapon from floor level** (no ray weapon, no climbing, no NaN). `boss-combat-e2e`'s kiting heuristic was corrected in the same pass: its 6-unit standoff sat outside the Crypt Warden's 7-unit wake radius, which deadlocked it.
+
+Suite **1056 → 1140/1140**. All 14 bosses: react ✅ · open a window ✅ · die to melee from the floor ✅.
+
 ## Known remaining polish (not blockers)
 - Boss fights are arena-scripted phases (not full cinematic cutscenes / unique OST stems)
 - Music is synthesized beds + motifs, not composed tracks
@@ -253,7 +278,7 @@ like A Link to the Past. All five closed.
 ## How to run
 ```bash
 cd sovereign-scar
-npm test          # full suite (1056)
+npm test          # full suite (1140)
 npm run test:unit
 npm run serve     # http://127.0.0.1:8799/
 ```

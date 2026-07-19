@@ -51,6 +51,15 @@ export class BossBase {
         this.alive = true;
         this.defeated = false;
 
+        // ── Zelda boss grammar (see runAction / startAction below) ──────────
+        this.action = null;
+        this.actionCd = opts.firstActionDelay != null ? opts.firstActionDelay : 1.2;
+        // Damage multiplier applied to the boss while it is recovering. 1 =
+        // no reward for reading the pattern, which is where the roster was.
+        this.vulnerableMult = 1;
+        this.staggerMult = opts.staggerMult != null ? opts.staggerMult : 2;
+        this._recoverCue = null;
+
         if (opts.mesh) {
             this.root = opts.mesh;
             this.mesh = opts.mesh;
@@ -97,7 +106,10 @@ export class BossBase {
             this.alive = false;
             this.defeated = true;
             this.canHit = false;
+            this.action = null;
+            this.vulnerableMult = 1;
             this.clearTelegraph();
+            this._hideRecoverCue();
             if (this.root) this.root.visible = false;
             sfx.shatter();
             juice.hitstop(0.25);
@@ -180,6 +192,210 @@ export class BossBase {
         this._telegraphLife = 0;
     }
 
+    // ── Zelda boss grammar ──────────────────────────────────────────────────
+    //
+    // A Link to the Past boss is a loop the player learns by watching:
+    //
+    //   PATTERN  the boss does something readable — it circles, it stalks, it
+    //            surfaces. You get to breathe, and to plan.
+    //   WINDUP   it commits. A telegraph names WHERE the blow lands, and the
+    //            boss stops doing anything else so the commitment is legible.
+    //   STRIKE   damage resolves against where you are AT THAT MOMENT, so
+    //            stepping off the marked ground is always enough.
+    //   RECOVER  it is spent: motionless, open, and taking double damage.
+    //            This is your turn, and you only get it because you dodged.
+    //
+    // That last beat is the one the roster was missing. Attacks fired off bare
+    // cooldowns, and hitting the boss was equally good at every instant — so
+    // there was no reason to read anything, and no reward for having read it.
+    // RECOVER is what turns a damage race into a conversation.
+
+    /** True while a committed action owns the boss; pattern movement should yield. */
+    get busy() {
+        return this.action != null;
+    }
+
+    /** True during the recovery window — the boss is open and taking bonus damage. */
+    get staggered() {
+        return this.action != null && this.action.stage === 'recover';
+    }
+
+    /**
+     * Commit the boss to one attack.
+     *
+     * @param {object} def
+     * @param {string}   def.name       for tests and debugging
+     * @param {number}   [def.windup]   seconds of readable commitment
+     * @param {number}   [def.recover]  seconds of open, double-damage stagger
+     * @param {function} [def.aim]      (player) => { x, z, radius?, shape?, color?, dir? }
+     *                                  the telegraph. Called once, at windup start.
+     * @param {function} [def.strike]   (player, aim, game) => void — resolve damage
+     * @param {function} [def.onRecover] (game) => void
+     * @param {number}   [def.cooldown] seconds before the next action may start
+     * @param {object}   [player]       target; defaults to the one update() saw.
+     *                                  Committing to an attack with no target
+     *                                  is refused rather than aimed at nothing.
+     */
+    startAction(def, player) {
+        if (this.action || this.state.current === 'DEAD') return false;
+        const target = player || this._actionPlayer;
+        if (def.aim && !target) return false;
+        const windup = def.windup != null ? def.windup : 0.7;
+        const aim = def.aim ? def.aim(target) : null;
+        this.action = {
+            def, aim, stage: 'windup', t: windup,
+            windup, recover: def.recover != null ? def.recover : 0.9,
+        };
+        if (aim) {
+            this.telegraphShape(aim.shape || 'circle', {
+                x: aim.x, z: aim.z,
+                radius: aim.radius != null ? aim.radius : 2.2,
+                dir: aim.dir, life: windup, color: aim.color,
+            });
+        }
+        if (def.onWindup) def.onWindup(this);
+        return true;
+    }
+
+    /** Drive the committed action. Called from update() before tickAI. */
+    runAction(dt, player, game) {
+        if (this.actionCd > 0) this.actionCd -= dt;
+        const a = this.action;
+        if (!a) return;
+        a.t -= dt;
+        if (a.t > 0) return;
+
+        if (a.stage === 'windup') {
+            // Resolve against where the player IS, not where the telegraph was.
+            if (a.def.strike && player && !player.health?.dead) {
+                a.def.strike(player, a.aim, game);
+            }
+            this.clearTelegraph();
+            a.stage = 'recover';
+            a.t = a.recover;
+            // Open the window: stop shielding, take double, and SHOW it.
+            this._preRecoverShield = this.shielded;
+            this.shielded = false;
+            this.vulnerableMult = this.staggerMult;
+            this._showRecoverCue();
+            return;
+        }
+
+        // Recovery over — close the window and go back to the pattern.
+        this.vulnerableMult = 1;
+        if (this._preRecoverShield != null) {
+            this.shielded = this._preRecoverShield;
+            this._preRecoverShield = null;
+        }
+        this._hideRecoverCue();
+        this.actionCd = a.def.cooldown != null ? a.def.cooldown : 1.4;
+        if (a.def.onRecover) a.def.onRecover(game);
+        this.action = null;
+    }
+
+    /**
+     * The stagger has to be visible or it may as well not exist — the same
+     * mistake that left every boss telegraph rendering a metre underground.
+     * A bright halo sits at the boss's feet for exactly as long as the window.
+     */
+    _showRecoverCue() {
+        this._hideRecoverCue();
+        if (!this.root) return;
+        const r = Math.max(1.0, this.contactRadius * 0.9);
+        const geo = new THREE.RingGeometry(r * 0.65, r, 24);
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0xfff0a0, transparent: true, opacity: 0.85,
+            side: THREE.DoubleSide, depthWrite: false,
+        });
+        const halo = new THREE.Mesh(geo, mat);
+        halo.rotation.x = -Math.PI / 2;
+        halo.position.set(this.root.position.x, this.floorY + 0.05, this.root.position.z);
+        this.scene.add(halo);
+        this._recoverCue = halo;
+        sfx.block();
+    }
+
+    _hideRecoverCue() {
+        if (!this._recoverCue) return;
+        if (this._recoverCue.parent) this._recoverCue.parent.remove(this._recoverCue);
+        this._recoverCue.geometry?.dispose();
+        this._recoverCue.material?.dispose();
+        this._recoverCue = null;
+    }
+
+    /**
+     * Shaped telegraphs. A ring means "stand somewhere else"; a cone means
+     * "get behind it"; a line means "get out of the lane". One ring for every
+     * attack in the game taught the player nothing about which was coming.
+     *
+     * @param {'circle'|'cone'|'line'} kind
+     */
+    telegraphShape(kind, opts = {}) {
+        const { x = 0, z = 0, radius = 2.2, life = 0.7, dir = null } = opts;
+        if (kind === 'circle' || !dir) {
+            this.telegraphAt(x, z, radius, life, opts.color != null ? opts.color : 0xff4040);
+            return;
+        }
+        this.clearTelegraph();
+        const dlen = Math.hypot(dir.x, dir.z) || 1;
+        const dx = dir.x / dlen, dz = dir.z / dlen;
+        let geo;
+        if (kind === 'cone') {
+            const half = opts.halfAngle != null ? opts.halfAngle : Math.PI / 4;
+            geo = new THREE.CircleGeometry(radius, 24, -half, half * 2);
+        } else {
+            const w = opts.width != null ? opts.width : 1.4;
+            geo = new THREE.PlaneGeometry(w, radius);
+            geo.translate(0, radius / 2, 0);
+        }
+        const mat = new THREE.MeshBasicMaterial({
+            color: opts.color != null ? opts.color : 0xff4040,
+            transparent: true, opacity: 0.6,
+            side: THREE.DoubleSide, depthWrite: false,
+        });
+        const m = new THREE.Mesh(geo, mat);
+        // Laid flat, then yawed. The -90° X tilt maps local (x,y,z) to world
+        // (x, z, -y), so the two geometries need DIFFERENT yaws to end up
+        // pointing the same way: the cone's wedge is centred on local +X,
+        // while the plane extends along local +Y. Solving each through the
+        // tilt gives the two atan2 forms below.
+        //
+        // These were previously a single shared expression with a sign error,
+        // which drew every cone and lane rotated away from the attack it was
+        // announcing — a telegraph that actively lies is worse than none,
+        // because the player is punished for reading it correctly.
+        m.rotation.x = -Math.PI / 2;
+        m.rotation.z = kind === 'cone'
+            ? Math.atan2(-dz, dx)
+            : Math.atan2(-dx, -dz);
+        m.position.set(x, this.floorY + 0.07, z);
+        this.scene.add(m);
+        this._telegraph = m;
+        this._telegraphLife = life;
+        this._telegraphMax = life;
+    }
+
+    /** Cone hit test in the XZ plane — matches the 'cone' telegraph. */
+    inCone(player, origin, dir, radius, halfAngle = Math.PI / 4) {
+        if (!player) return false;
+        const dx = player.root.position.x - origin.x;
+        const dz = player.root.position.z - origin.z;
+        const d = Math.hypot(dx, dz);
+        if (d > radius) return false;
+        const len = Math.hypot(dir.x, dir.z) || 1;
+        const dot = (dx * dir.x + dz * dir.z) / (d || 1) / len;
+        return dot >= Math.cos(halfAngle);
+    }
+
+    /** Radial hit test in the XZ plane — matches the 'circle' telegraph. */
+    inBlast(player, x, z, radius) {
+        if (!player) return false;
+        return Math.hypot(
+            player.root.position.x - x,
+            player.root.position.z - z
+        ) < radius;
+    }
+
     /**
      * Damage player if within contact radius (respects i-frames via health.damage).
      */
@@ -230,6 +446,20 @@ export class BossBase {
             });
         }
 
+        // Subclasses read this in aim() callbacks, which fire inside
+        // startAction() and so have no player argument of their own.
+        this._actionPlayer = player;
+        this.runAction(dt, player, game);
+        if (this._recoverCue && this.root) {
+            this._recoverCue.position.set(
+                this.root.position.x, this.floorY + 0.05, this.root.position.z
+            );
+            const a = this.action;
+            const u = a && a.recover ? Math.max(0, a.t / a.recover) : 0;
+            this._recoverCue.material.opacity = 0.45 + u * 0.45;
+            this._recoverCue.scale.setScalar(1 + (1 - u) * 0.3);
+        }
+
         this.tickAI(dt, player, game);
         this.tryContact(player, dt);
     }
@@ -239,6 +469,7 @@ export class BossBase {
 
     dispose() {
         this.clearTelegraph();
+        this._hideRecoverCue();
         if (this.root?.parent) this.root.parent.remove(this.root);
         this.root?.traverse?.((c) => {
             c.geometry?.dispose?.();
@@ -317,6 +548,48 @@ export function attachBoss(level, boss, opts = {}) {
         },
     });
     return boss;
+}
+
+/**
+ * Circle the player while closing.
+ *
+ * A boss that holds a fixed radius from a player who is chasing it is simply
+ * unreachable — it backs away exactly as fast as you approach, forever. That
+ * is what a naive "orbit the player at R" does, and it is worse than the fixed
+ * arena orbits it replaced, because at least those could be walked into.
+ *
+ * So the radius only ever shrinks: the boss strafes around you and spirals in,
+ * which reads as circling for an opening and still guarantees the fight closes.
+ *
+ * @param {{x:number,z:number}} pos       mutated in place
+ * @param {object} player
+ * @param {number} dt
+ * @param {object} [opts]
+ * @param {number} [opts.speed=3]         travel speed
+ * @param {number} [opts.spin=0.7]        radians/sec around the player
+ * @param {number} [opts.close=0.8]       units/sec the radius tightens by
+ * @param {number} [opts.minRadius=2]     never spiral closer than this
+ */
+export function circleStrafe(pos, player, dt, opts = {}) {
+    if (!player) return;
+    const { speed = 3, spin = 0.7, close = 0.8, minRadius = 2 } = opts;
+    const px = player.root.position.x, pz = player.root.position.z;
+    const dx = pos.x - px, dz = pos.z - pz;
+    const cur = Math.hypot(dx, dz) || 0.001;
+    const want = Math.max(minRadius, cur - close * dt);
+    const a = Math.atan2(dz, dx) + spin * dt;
+    const tx = px + Math.cos(a) * want, tz = pz + Math.sin(a) * want;
+    // Step toward the strafe point WITHOUT overshooting it. moveToward has no
+    // clamp, so once the spiral reaches its minimum radius a full step sails
+    // past the target and lands further out than it started — the boss ends up
+    // jittering in and out instead of holding the ring.
+    const ddx = tx - pos.x, ddz = tz - pos.z;
+    const dd = Math.hypot(ddx, ddz);
+    const step = Math.min(dd, speed * dt);
+    if (dd > 1e-6) {
+        pos.x += (ddx / dd) * step;
+        pos.z += (ddz / dd) * step;
+    }
 }
 
 /** Utility: move entity toward point with simple speed. */

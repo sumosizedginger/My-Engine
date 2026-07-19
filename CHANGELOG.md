@@ -8,6 +8,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 By-hand playtest feedback, fixed.
 
 ### Added
+- **Boss fights are fights.** Every boss now runs one loop: a readable pattern,
+  a wind-up that commits and marks the ground, a strike resolved against where
+  you are at that moment, and a **recovery window** where it is motionless,
+  lit, and taking double damage. Reading a boss now buys you something; before,
+  attacks fired off bare cooldowns and hitting the boss was equally good at
+  every instant, so mashing was optimal in all 14 fights.
+- Telegraph shapes: rings ("move"), cones ("get behind it") and lanes ("leave
+  the line"), instead of one identical ring for every attack in the game.
+- `boss-quality-e2e` and `boss-grammar` specs (+84 assertions, 1056 → 1140)
+  asserting the things "the boss reaches 0 HP" cannot see: that each boss
+  reacts to where the player stands, opens a real window, and dies to a melee
+  weapon from floor level.
 - Enemy attack telegraphs. Every hostile action now winds up: the enemy holds
   still, a ring marks the ground it is about to strike, and damage resolves
   only when the ring expires — against where you are at that moment. Walking
@@ -54,6 +66,32 @@ By-hand playtest feedback, fixed.
   had been rendering a full unit underground since the boss framework landed.
 - Dying no longer respawns you into empty space. Respawn uses the room you
   died in rather than the spawn point captured at level load.
+- **8 of the 14 bosses ignored the player completely.** Their movement was a
+  function of the clock alone — byte-identical paths no matter where you
+  stood. The Sand Spur traced the same four corners forever; the Magma Wyrm
+  swam a fixed figure-8 dribbling fire on its own track; the Tri-Compiler,
+  Frost & Fuel, GUMOI Witness and Leviathan Core orbited fixed points, and the
+  Leviathan did not move at all until phase 2. Four of them had no
+  player-targeted attack of any kind, so the only way to be hurt was to walk
+  into one. All 14 now read and respond to the player.
+- **The GUMOI Witness could not be hit by any melee weapon, in any phase.** It
+  hovered ~7 units above the player's head, where the vertical gate in
+  `hitboxCheck` rejects every sword in the game. It was killable only by the
+  Light Caster, and only because a ray move carries no `vertical` field — so
+  the gate compared against `undefined`, produced `NaN`, and let the hit
+  through by accident. It now descends to head height to attack.
+- **The Obsidian Arachnid deadlocked at close range.** Armoured except
+  mid-leap, and it only leapt at targets more than 3 units away — so a player
+  who walked up and stayed there swung forever into a boss that could take no
+  damage and would never open. It now also leaps to make space when crowded.
+- Leviathan decoys orbited the world origin instead of the Core, which put
+  them in a different part of the dungeon entirely (beat-14's arena is nowhere
+  near 0,0).
+- The Kinetic Core's charge teleported to the far wall instead of crossing the
+  floor between, so it could not be dodged, blocked or even seen.
+- Bosses that keep their distance now spiral inward rather than holding a fixed
+  radius, which would have made them literally uncatchable — backing away
+  exactly as fast as the player approaches.
 
 ## [0.3.0] — 2026-07-17
 
