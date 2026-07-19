@@ -88,6 +88,16 @@ export function run(t) {
     drift.pollGamepad([pad({ axes: [0.94, -0.18, 0, 0], id: 'drifting-pad' })]);
     t.ok('stick works once seen at rest', drift.padMove.x === 0.94);
 
+    // The suppressed state is reported so the HUD can explain itself
+    t.ok('suppressed stick is reported to the HUD', drift.padStickHeld === false);
+    const held = new Input(fakeDom);
+    held.pollGamepad([pad({ axes: [0.94, 0, 0, 0], id: 'held-pad' })]);
+    t.ok('held stick flags padStickHeld', held.padStickHeld === true);
+    held.pollGamepad([pad({ axes: [0, 0, 0, 0], id: 'held-pad' })]);
+    t.ok('flag clears once the stick centres', held.padStickHeld === false);
+    held.pollGamepad([]);
+    t.ok('flag clears when the pad disconnects', held.padStickHeld === false);
+
     // A right stick pinned at rest must not force-steer facing either
     const aimDrift = new Input(fakeDom);
     aimDrift.pollGamepad([pad({ axes: [0, 0, -1, 0], id: 'aim-drift' })]);

@@ -483,6 +483,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) onRe
 
 // ── Main loop ─────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
+let _stickHintShown = false; // one-shot off-centre-stick hint (see pollGamepad)
 let deathTimer = 0;
 let deathShown = false;
 let saveAcc = 0;
@@ -506,6 +507,12 @@ function frame() {
 
     // Gamepad (B5): poll once per frame; d-pad/A/B nav feeds menus + ending
     input.pollGamepad();
+    // One-shot hint when a stick is off-centre at connect and being ignored.
+    // Without it the controller just silently does nothing (see input.js).
+    if (input.padStickHeld && !_stickHintShown) {
+        _stickHintShown = true;
+        hud.toast('Controller stick is off-centre — release/recentre it to use the pad', 3600);
+    }
     const menuCodes = input.consumeMenuCodes();
     if (menuCodes.length) {
         for (const code of menuCodes) {

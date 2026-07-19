@@ -39,6 +39,11 @@ export class Input {
         this._padId = null;
         this._armMove = false;
         this._armAim = false;
+        // True while a pad is connected but its left stick has never been seen
+        // at rest, so movement input from it is being ignored. Drives a one-shot
+        // HUD hint — silently eating input leaves the player with no idea why
+        // the controller does nothing.
+        this.padStickHeld = false;
 
         this._onKeyDown = (e) => {
             this.padActive = false; // keyboard use reverts the pad legend
@@ -133,6 +138,7 @@ export class Input {
             this._padId = null;
             this._armMove = false;
             this._armAim = false;
+            this.padStickHeld = false;
             return;
         }
         const prev = this._prevButtons;
@@ -155,6 +161,7 @@ export class Input {
         if (Math.hypot(rx, rz) <= DEADZONE) this._armMove = true;
         if (Math.hypot(rax, raz) <= DEADZONE) this._armAim = true;
 
+        this.padStickHeld = !this._armMove;
         this.padMove.x = this._armMove ? dz(rx) : 0;
         this.padMove.z = this._armMove ? dz(rz) : 0;
         const ax = this._armAim ? dz(rax) : 0;
