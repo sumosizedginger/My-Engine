@@ -600,6 +600,73 @@ export async function run(t) {
             gate.backOut.id === 'overworld' && gate.backOut.screen === 'scarfield'
             && gate.backOut.nearArch, JSON.stringify(gate.backOut));
 
+        // ── Death respawns in the room you died in, on solid ground ──
+        // Regression: respawn used the level's LOAD-TIME spawn, which on the
+        // overworld is a different screen. That teleport landed in unbaked
+        // void, the player fell past y=-12, was re-killed, and respawned into
+        // the void again — an unbreakable fall-forever loop. Reported from a
+        // real playthrough ("when I died I kept falling through the map").
+        const death = await page.evaluate(async () => {
+            const s = window.__sovereignScar;
+            const p = s.player;
+            const out = {};
+            const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+            s.game.atTitle = false; s.game.paused = false; s.menu.close();
+
+            // Overworld, on a screen far from the load-time spawn
+            s.loadLevel('overworld');
+            await settle(400);
+            const lvl = s.game.level;
+            const far = Object.keys(lvl.def.rooms).find((k) => k !== lvl.currentRoomId());
+            lvl.enterRoom(far, s.game);
+            const r = lvl.cameraBounds;
+            p.rig.position.set((r.minX + r.maxX) / 2, 1.95, (r.minZ + r.maxZ) / 2);
+            p.physics.resetVelocity(); p.physics.grounded = true;
+            await settle(300);
+            out.owScreen = lvl.currentRoomId();
+            p.health.damage(p.health.max, 0);
+            await settle(3000);
+            out.owRespawn = {
+                screen: lvl.currentRoomId(),
+                y: p.root.position.y, dead: p.health.dead,
+                onSolid: lvl.getVoxelAt(p.root.position.x, p.root.position.y - 1.0, p.root.position.z),
+            };
+            await settle(1500);
+            out.owStable = { y: p.root.position.y, vy: p.physics.vy, dead: p.health.dead };
+
+            // Dungeon, in a room that is not the start room
+            s.loadLevel('beat-01-crypt');
+            await settle(400);
+            const d = s.game.level;
+            d.enterRoom('warden', s.game);
+            const wr = d.cameraBounds;
+            p.rig.position.set((wr.minX + wr.maxX) / 2, 1.95, (wr.minZ + wr.maxZ) / 2);
+            p.physics.resetVelocity(); p.physics.grounded = true;
+            await settle(300);
+            p.health.damage(p.health.max, 0);
+            await settle(3000);
+            out.dgRespawn = {
+                room: d.currentRoomId(),
+                y: p.root.position.y, dead: p.health.dead,
+                onSolid: d.getVoxelAt(p.root.position.x, p.root.position.y - 1.0, p.root.position.z),
+            };
+            return out;
+        });
+        t.ok('death: overworld respawn stays on the same screen',
+            death.owRespawn.screen === death.owScreen,
+            `${death.owScreen} → ${death.owRespawn.screen}`);
+        t.ok('death: overworld respawn lands on solid ground',
+            death.owRespawn.onSolid && !death.owRespawn.dead && death.owRespawn.y > -1,
+            JSON.stringify(death.owRespawn));
+        t.ok('death: overworld respawn does not fall forever',
+            death.owStable.y > -1 && death.owStable.vy > -5,
+            JSON.stringify(death.owStable));
+        t.ok('death: dungeon respawn stays in the room you died in',
+            death.dgRespawn.room === 'warden', JSON.stringify(death.dgRespawn));
+        t.ok('death: dungeon respawn lands on solid ground',
+            death.dgRespawn.onSolid && !death.dgRespawn.dead && death.dgRespawn.y > -1,
+            JSON.stringify(death.dgRespawn));
+
         t.ok('no fatal pageerrors', errors.filter((e) => !/AudioContext|favicon/i.test(e)).length === 0,
             errors.slice(0, 5).join(' | '));
     } finally {

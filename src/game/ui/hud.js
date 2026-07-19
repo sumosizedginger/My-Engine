@@ -203,13 +203,13 @@ export class HUD {
             this.helpEl.textContent =
                 'Left stick move · Right stick aim · A attack\n' +
                 'B dash · X interact · Y grapple · LB/RB weapon\n' +
-                'D-up mood · Select mute · Start pause';
+                'Select map · D-up mood · LT mute · Start pause';
         } else if (!state.pad && this._padLegend) {
             this._padLegend = false;
             this.helpEl.textContent =
                 'WASD move · Mouse aim · LMB/Space attack\n' +
                 'Shift dash · Q/R weapon · E interact · G grapple\n' +
-                'N mute · P pause · Enter advance story';
+                'Tab map · N mute · P pause · Enter advance story';
         }
         const hp = state.hp ?? 0;
         const max = state.maxHp ?? 6;

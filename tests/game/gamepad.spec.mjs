@@ -44,12 +44,15 @@ export function run(t) {
 
     // Full mapping table
     input.pollGamepad([pad({})]);
-    input.pollGamepad([pad({ buttons: [1, 2, 3, 5, 8, 9, 12] })]);
+    input.pollGamepad([pad({ buttons: [1, 2, 3, 5, 6, 8, 9, 12] })]);
     t.ok('B → dash', input.consumeDash() === true);
     t.ok('X → interact', input.consumeInteract() === true);
     t.ok('Y → grapple', input.consumeGrapple() === true);
     t.ok('RB → weapon next', input.consumeWeaponCycle() === 1);
-    t.ok('Select → mute', input.consumeMuteToggle() === true);
+    t.ok('LT → mute', input.consumeMuteToggle() === true);
+    // The map had no pad binding at all — it was keyboard-only (Tab) and
+    // unadvertised, so on a controller it was unreachable.
+    t.ok('Select → map', input.consumeMapToggle() === true);
     t.ok('Start → pause', input.consumePause() === true);
     t.ok('D-up → mood', input.consumeMoodToggle() === true);
 

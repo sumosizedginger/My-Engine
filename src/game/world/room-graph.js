@@ -317,6 +317,26 @@ export function createDungeon(ctx, def, opts = {}) {
         if (room.onEnter && game) room.onEnter(game, room);
     }
 
+    /** Floor to stand on at (x,z) with head clearance above it. */
+    function standable(x, z) {
+        return api.getVoxelAt(x, 0.5, z) && !api.getVoxelAt(x, 1.5, z);
+    }
+
+    /** Nearest standable cell to a room's centre, searched in rings. */
+    function nearestStandable(room, o) {
+        const half = room.half;
+        for (let r = 0; r <= half; r++) {
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dz = -r; dz <= r; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+                    const x = o.x + dx + 0.5, z = o.z + dz + 0.5;
+                    if (standable(x, z)) return { x, z };
+                }
+            }
+        }
+        return null;
+    }
+
     function matchingDoor(toRoomId, fromRoomId) {
         const room = def.rooms[toRoomId];
         return (room.doors || []).find((d) => d.to === fromRoomId) || null;
@@ -578,6 +598,27 @@ export function createDungeon(ctx, def, opts = {}) {
         enterRoom,
         bakedRooms: () => [...baked.keys()],
         def,
+        /**
+         * Where death returns the player: the entry point of the room they
+         * are CURRENTLY in. Never the level's load-time spawn — on the
+         * overworld that is a different screen entirely, so teleporting there
+         * drops the player into unbaked void and they fall forever instead of
+         * respawning. The declared spawn can also sit on carved geometry
+         * (chasms, sludge pools), so an unsupported point falls back to the
+         * nearest standable floor cell in the same room.
+         */
+        respawnPoint() {
+            const room = def.rooms[currentRoomId];
+            if (!room) return null;
+            const o = roomOrigin(room);
+            const x = o.x + (room.spawn?.x || 0);
+            const z = o.z + (room.spawn?.z || 0);
+            if (standable(x, z)) return { roomId: currentRoomId, x, y: 1.95, z };
+            const found = nearestStandable(room, o);
+            return found
+                ? { roomId: currentRoomId, x: found.x, y: 1.95, z: found.z }
+                : { roomId: currentRoomId, x, y: 1.95, z };
+        },
         // W6: room-graph view for the Tab map
         mapData() {
             const visited = keyStore.visited?.() || [];

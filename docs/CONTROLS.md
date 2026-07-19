@@ -17,8 +17,13 @@
 | **Enter** | Advance / skip story line |
 
 Gamepad (standard mapping): left stick move, right stick aim, **A** attack,
-**B** dash, **X** interact, **Y** grapple, **LB/RB** weapon, **Start** pause,
-**Select** mute.
+**B** dash, **X** interact, **Y** grapple, **LB/RB** weapon, **Select** map,
+**D-up** mirror travel, **LT** mute, **Start** pause.
+
+A stick that is already off-centre when the pad connects (held, drifting, or
+stuck) is ignored until it has been seen at rest once — otherwise it would pin
+movement in one direction and override the keyboard. The HUD says so when it
+happens; recentre the stick to enable it.
 
 ## HUD
 

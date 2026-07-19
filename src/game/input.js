@@ -174,7 +174,10 @@ export class Input {
         if (pressed(3)) this._grapple = true;
         if (pressed(4)) this._weaponCycle = -1;
         if (pressed(5)) this._weaponCycle = 1;
-        if (pressed(8)) this._muteToggle = true;
+        // Select/Back opens the map (the conventional slot for it, and the
+        // map was previously unreachable on a pad entirely); mute moves to LT.
+        if (pressed(6)) this._muteToggle = true;
+        if (pressed(8)) this._mapToggle = true;
         if (pressed(9)) this._pause = true;
         if (pressed(12)) { this._moodToggle = true; this._menuCodes.push('ArrowUp'); }
         if (pressed(13)) this._menuCodes.push('ArrowDown');

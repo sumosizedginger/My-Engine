@@ -735,14 +735,33 @@ function frame() {
                 deathShown = false;
                 const p = loadSovereignProgress();
                 saveSovereignProgress({ deaths: (p.deaths || 0) + 1 });
-                player.respawn();
-                // Snap to solid if spawn still bad
-                if (player.physics.getVoxelAt) {
+                // Respawn into the room the player actually died in. The
+                // load-time spawn can be on a different overworld screen, and
+                // teleporting there lands in unbaked void — the player then
+                // falls forever, is re-killed below y=-12, and respawns into
+                // the void again in an unbreakable loop.
+                const rp = game.level?.respawnPoint?.();
+                if (rp) {
+                    if (rp.roomId && game.level.enterRoom
+                        && game.level.currentRoomId?.() !== rp.roomId) {
+                        game.level.enterRoom(rp.roomId, game);
+                    }
+                    player.setSpawn(rp.x, rp.y, rp.z); // setSpawn respawns
+                    camRig.setBounds(game.level?.cameraBounds || null);
+                    camRig.snapTo(player.root.position);
+                } else {
+                    player.respawn();
+                    // Levels without a room graph: fall back to the level's
+                    // own spawn, never world origin (void in most levels).
                     const sp = player.spawnPoint;
-                    if (!player.physics.getVoxelAt(sp.x, sp.y - 1.0, sp.z)) {
-                        player.rig.position.set(0, 1.5, 0);
-                        player.physics.resetVelocity();
-                        player.physics.grounded = true;
+                    if (player.physics.getVoxelAt
+                        && !player.physics.getVoxelAt(sp.x, sp.y - 1.0, sp.z)) {
+                        const ls = game.level?.spawn;
+                        if (ls) {
+                            player.rig.position.set(ls.x, ls.y != null ? ls.y : 1.95, ls.z);
+                            player.physics.resetVelocity();
+                            player.physics.grounded = true;
+                        }
                     }
                 }
                 hud.hideDeath();
