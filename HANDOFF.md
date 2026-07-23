@@ -15,6 +15,32 @@ npm test               # unit + browser E2E
 npm run test:unit      # unit only — fast, no browser
 ```
 
+> ## ⚠ `origin` is the WRONG remote for this game
+>
+> This repo began as a clone of My-Engine, so `origin` still points at
+> **`My-Engine.git`**. The game lives at **`Sovereign-Scar.git`**. A plain
+> `git push` therefore publishes the game into the engine's repository and
+> **silently leaves the game's own repo untouched** — it succeeds, it prints a
+> normal ref update, and nothing tells you the work went somewhere nobody is
+> looking. It has now happened across three sessions and was only caught when
+> the owner said "I do not see the open questions": `Sovereign-Scar.git` was
+> **11 commits behind**, including two entire sessions of work.
+>
+> Push with the URL spelled out:
+>
+> ```bash
+> git push https://github.com/sumosizedginger/Sovereign-Scar.git HEAD:main
+> ```
+>
+> Then verify, because the failure mode is a push that looks like it worked:
+>
+> ```bash
+> git ls-remote https://github.com/sumosizedginger/Sovereign-Scar.git refs/heads/main
+> ```
+>
+> Changing the remote URL is blocked in this environment, which is why the
+> hazard cannot simply be removed.
+
 The suite is the contract. It is large on purpose and most of it encodes a
 lesson rather than a behaviour; if something fails, read the comment above the
 assertion before changing it.

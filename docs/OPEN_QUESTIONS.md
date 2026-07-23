@@ -3,6 +3,11 @@
 Written 2026-07-22, after the renderer pass. Self-contained: you should not need
 to read the rest of the repo to answer any of these.
 
+> If you went looking for this file and could not find it: for three sessions
+> the game was being pushed to `My-Engine.git`, because that is where `origin`
+> points in this clone. `Sovereign-Scar.git` was 11 commits behind. Fixed, and
+> flagged at the top of `HANDOFF.md` so it does not recur.
+
 Each one is blocked on a **judgement**, not on effort. I have deliberately not
 resolved them by picking a number, because in every case the number is the thing
 in question and choosing it myself would be assuming the answer.
