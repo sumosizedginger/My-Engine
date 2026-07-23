@@ -19,10 +19,26 @@
 // the player makes eighteen months later.
 
 import { readFileSync } from 'node:fs';
-import { CONTROLS, controlSheet } from '../../src/game/input.js';
+import { CONTROLS, controlSheet, padSheet } from '../../src/game/input.js';
 
 const SRC = new URL('../../src/game/input.js', import.meta.url);
 const DOC = new URL('../../docs/CONTROLS.md', import.meta.url);
+const HUD = new URL('../../src/game/ui/hud.js', import.meta.url);
+
+/**
+ * Gamepad buttons the handler genuinely reacts to.
+ *
+ * Same idea as `boundCodes`, applied to `pollGamepad`: read the indices the
+ * handler tests (`pressed(N)` for edges, `b[N]` for held state) rather than
+ * trusting the table to describe itself.
+ */
+function boundPadButtons(source) {
+    const body = source.slice(source.indexOf('pollGamepad('));
+    const found = new Set();
+    for (const m of body.matchAll(/pressed\((\d+)\)/g)) found.add(+m[1]);
+    for (const m of body.matchAll(/b\[(\d+)\]/g)) found.add(+m[1]);
+    return found;
+}
 
 /** Codes the handler genuinely reacts to: `e.code === 'X'` and `keys.has('X')`. */
 function boundCodes(source) {
@@ -42,7 +58,8 @@ function boundCodes(source) {
 export function run(t) {
     const source = readFileSync(SRC, 'utf8');
     const docs = readFileSync(DOC, 'utf8');
-    const tabled = new Set(CONTROLS.flatMap((c) => c.codes));
+    // `|| []` because a pad-only binding (the right stick) has no key codes.
+    const tabled = new Set(CONTROLS.flatMap((c) => c.codes || []));
 
     // --- the table covers the handler -------------------------------------
     const bound = boundCodes(source);
@@ -70,13 +87,67 @@ export function run(t) {
 
     // --- the on-screen sheet covers the player-facing table ---------------
     const sheet = controlSheet();
-    for (const c of CONTROLS.filter((x) => !x.dev)) {
+    for (const c of CONTROLS.filter((x) => !x.dev && !x.padOnly)) {
         t.ok(`the HUD cheat sheet shows ${c.label}`, sheet.includes(c.label), sheet);
     }
     t.ok('the cheat sheet keeps no dev keys on it',
         !/God mode|Dev panel/i.test(sheet));
     t.ok('the cheat sheet stays short enough to sit in a corner',
         sheet.split('\n').length <= 4, `${sheet.split('\n').length} lines`);
+
+    // --- the GAMEPAD legend, held to the same standard --------------------
+    //
+    // The keyboard sheet was unified into CONTROLS an earlier session and the
+    // pad legend was left hand-written in `ui/hud.js`. It drifted, exactly as
+    // the keyboard one had: it said **"D-up mood"**, while that button sets
+    // `_moodToggle` — the same flag `KeyM` sets, which the table and the docs
+    // both call mirror travel. One list left un-generated is one list free to
+    // be wrong.
+    const padBound = boundPadButtons(source);
+    const padTabled = new Set(CONTROLS.flatMap((c) => c.padButtons || []));
+
+    t.ok('the pad handler binds something', padBound.size > 8, `${padBound.size} buttons`);
+
+    // D-pad down/left/right only synthesize menu navigation — they are not
+    // gameplay verbs and have nothing to put on a legend.
+    const MENU_ONLY = new Set([13, 14, 15]);
+    const padUndocumented = [...padBound]
+        .filter((i) => !padTabled.has(i) && !MENU_ONLY.has(i));
+    t.ok('every gamepad button the game responds to is in the CONTROLS table',
+        padUndocumented.length === 0, `missing buttons: ${padUndocumented.join(', ')}`);
+
+    const padPhantom = [...padTabled].filter((i) => !padBound.has(i));
+    t.ok('the CONTROLS table does not list buttons the handler ignores',
+        padPhantom.length === 0, `phantom buttons: ${padPhantom.join(', ')}`);
+
+    const pad = padSheet();
+    for (const c of CONTROLS.filter((x) => !x.dev && x.pad)) {
+        t.ok(`the pad legend shows ${c.pad} (${c.action})`,
+            pad.includes(c.pad), pad);
+    }
+    t.ok('the pad legend fits the same corner', pad.split('\n').length <= 4,
+        `${pad.split('\n').length} lines`);
+    // Match the hardcoded legend's own text, not a phrase that could appear in
+    // a comment explaining why it was removed.
+    const hudSrc = readFileSync(HUD, 'utf8');
+    t.ok('the pad legend is generated, not hand-written',
+        !/'Left stick move/.test(hudSrc),
+        'ui/hud.js still assigns the hardcoded legend string');
+    t.ok('the HUD imports the generator', /padSheet\(\)/.test(hudSrc));
+
+    // The pad legend must not invent a button for a keyboard-only verb.
+    for (const verb of ['Memory Vial', 'Entropy Dust', 'Mute']) {
+        const entry = CONTROLS.find((c) => c.action === verb);
+        t.ok(`${verb} stays keyboard-only`, entry && !entry.pad,
+            'no button is mapped to it, so the legend must not claim one');
+        t.ok(`the pad legend does not mention ${verb}`,
+            !pad.toLowerCase().includes(verb.toLowerCase()), pad);
+    }
+    // Mute specifically: it gave up its trigger slot to the defensive verbs.
+    t.ok('the triggers carry the defensive verbs, not mute',
+        CONTROLS.find((c) => c.action === 'Lock on')?.padButtons?.[0] === 6
+        && CONTROLS.find((c) => c.action.startsWith('Guard'))?.padButtons?.[0] === 7,
+        'LT lock-on, RT guard — the Ocarina layout');
 
     // --- the verbs that were missing are specifically present -------------
     // Named individually because these are the ones that were absent, and a

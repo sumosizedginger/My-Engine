@@ -1,7 +1,7 @@
 // DOM HUD — HP, weapon, mood, beat, boss bar, story hook.
 
 import { StoryPanel } from './story.js';
-import { controlSheet } from '../input.js';
+import { controlSheet, padSheet } from '../input.js';
 
 /**
  * Z3: poise readout. The guard is only a real decision if its cost is visible —
@@ -235,11 +235,10 @@ export class HUD {
         // Swap control legend when a gamepad becomes active (B5)
         if (state.pad && !this._padLegend) {
             this._padLegend = true;
-            this.helpEl.textContent =
-                'Left stick move · Right stick aim · A attack\n' +
-                'B dash · RT guard/parry · LT lock-on · L3 switch target\n' +
-                'X interact · Y grapple · LB/RB weapon\n' +
-                'Select map · D-up mood · Start pause';
+            // Generated from CONTROLS, like the keyboard sheet. The hand-written
+            // version this replaced had already drifted: it said "D-up mood"
+            // when that button does mirror travel.
+            this.helpEl.textContent = padSheet();
         } else if (!state.pad && this._padLegend) {
             this._padLegend = false;
             this.helpEl.textContent = controlSheet();

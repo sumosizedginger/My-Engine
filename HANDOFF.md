@@ -21,7 +21,7 @@ assertion before changing it.
 
 ## State
 
-Everything below is committed and green. Suite: **2105 unit / 2867 total**.
+Everything below is committed and green. Suite: **2133 unit / 2895 total**.
 
 | area | state |
 |---|---|
@@ -72,10 +72,16 @@ re-audit. Do not try to do it globally.
 
 Smaller things that are known-open:
 
-- The gamepad legend in `ui/hud.js` is still hand-written. The keyboard sheet
-  now generates from `CONTROLS` in `src/game/input.js`; the pad one should too,
-  it just needs a `pad:` field per binding.
 - `src/engine/lights.js: updateShadowFollow` is a trap, not a tool — see Trap 6.
+
+**7. One list left un-generated is one list free to be wrong.**
+The keyboard cheat sheet was unified into `CONTROLS` and the **gamepad** legend
+was left hand-written in `ui/hud.js` — and it had already drifted, labelling
+D-up as "mood" when the button does mirror travel. Both sheets and both doc
+tables now generate from the same entries, and `controls.spec.mjs` reads BOTH
+handlers (`_onKeyDown` and `pollGamepad`) and checks coverage in both
+directions. If you add a fourth surface — a remap screen, a touch overlay —
+generate it from the table too, or it will be wrong within a session.
 
 ## Measuring before changing
 

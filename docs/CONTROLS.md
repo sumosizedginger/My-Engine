@@ -75,12 +75,39 @@ committed strafing opens its back. Targets are scored by distance with a mild
 bias toward whatever you are already facing — something behind you only wins if
 it is less than half as far. The lock breaks on its own at 24 units.
 
-Gamepad (standard mapping): left stick move, right stick aim, **A** attack,
-**B** dash, **X** interact, **Y** grapple, **LB/RB** weapon, **LT** lock on,
-**RT** guard, **L3** cycle target, **Select** map, **D-up** mirror travel,
-**Start** pause. Mute is keyboard-only (**N**) — it gave up its trigger slot to
-the defensive verbs, because it is a settings toggle, not something you reach
-for mid-fight.
+## Gamepad
+
+Standard mapping. This table and the legend the game shows when a pad is
+connected are both generated from the same `CONTROLS` entries as the keyboard
+table above, and `tests/game/controls.spec.mjs` reads `pollGamepad` itself and
+fails if a button the handler reacts to is missing here — or if this claims a
+button the handler ignores.
+
+| Button | Action |
+|---|---|
+| **Left stick** | Move + face |
+| **Right stick** | Aim |
+| **A** | Attack · also advances story |
+| **B** | Dash |
+| **RT** | Guard (tap = parry) |
+| **LT** | Lock on |
+| **L3** | Switch target |
+| **LB / RB** | Cycle weapon |
+| **X** | Interact |
+| **Y** | Grapple |
+| **Select** | Map |
+| **D-up** | Mirror travel |
+| **Start** | Pause |
+
+**Some verbs are keyboard-only, and the legend does not pretend otherwise.** The
+Memory Vial (**V**), the Entropy Dust (**C**), the beat cycle (**[** / **]**)
+and Mute (**N**) have no button. Mute gave up its trigger slot to the defensive
+verbs — LT lock-on and RT guard, the Ocarina layout — because it is a settings
+toggle, not something you reach for mid-fight.
+
+The pad legend used to be four hand-written lines in `ui/hud.js`, and it had
+already drifted: it labelled **D-up** as "mood", when the button sets the same
+flag **M** does, which is mirror travel.
 
 A stick that is already off-centre when the pad connects (held, drifting, or
 stuck) is ignored until it has been seen at rest once — otherwise it would pin

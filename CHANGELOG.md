@@ -137,6 +137,31 @@ box, not as a place.
   while keeping the contrast. That trade is what the contrast floor exists to
   arbitrate, and this is the first time it did.
 
+### The one list left un-generated was wrong
+
+The keyboard cheat sheet was unified into `CONTROLS` last session. The **gamepad**
+legend was left hand-written in `ui/hud.js` — and it had already drifted. It
+labelled **D-up** as "mood", when that button sets `_moodToggle`, the same flag
+**M** sets, which the binding table and the docs both call **mirror travel**.
+
+One list left un-generated is one list free to be wrong. That is the whole
+lesson and it took four months to demonstrate itself twice.
+
+- `padSheet()` generates the pad legend from the same `CONTROLS` entries as the
+  keyboard sheet, via new `pad` / `padButtons` / `padAxes` fields.
+- **The spec reads `pollGamepad` itself**, extracting every button index the
+  handler tests (`pressed(N)` for edges, `b[N]` for held state) and checking it
+  both ways: no button the game responds to may be missing from the table, and
+  the table may not claim a button the handler ignores. Same discipline the
+  keyboard half already had — the table is not allowed to be its own evidence.
+- **Keyboard-only verbs stay keyboard-only, and the legend does not invent
+  buttons for them.** The Memory Vial, the Entropy Dust, the beat cycle and Mute
+  have no binding; a legend claiming one would be worse than a legend omitting
+  it. Asserted, along with the reason Mute has none: it gave up its trigger slot
+  to LT lock-on and RT guard.
+- `docs/CONTROLS.md` gained a real gamepad table — it had been one prose
+  paragraph carrying the same D-up error.
+
 ### Same lights, different rock
 
 Regenerating the 44 certification captures — the first time anyone had looked at

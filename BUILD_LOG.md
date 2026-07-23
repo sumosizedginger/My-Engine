@@ -482,7 +482,7 @@ New specs `music` (309 assertions) and `game-feel-visuals`; probes
 `synth.channelGain(channel)`, so game-side persistent buses honour the same
 volume settings.
 
-### Session 13 — the renderer pass, all six tickets (suite 2575 → 2867)
+### Session 13 — the renderer pass, all six tickets (suite 2575 → 2895)
 
 All six tickets of `docs/VISUAL_PLAN.md` implemented in order. The plan had been
 written for another agent to pick up cold; the owner asked for it to be built
@@ -563,6 +563,15 @@ measured, and each is recorded rather than quietly worked around.
 
 New probes: `contrast-probe`, `shadow-census`, `env-probe`, `trim-cost`,
 `certification-captures`.
+- **Gamepad legend generated too.** The keyboard sheet was unified into
+  `CONTROLS` last session; the pad legend stayed hand-written in `ui/hud.js`
+  and had already drifted — it said **"D-up mood"** when that button sets the
+  same `_moodToggle` flag `KeyM` does, i.e. mirror travel. `padSheet()` now
+  generates it from `pad`/`padButtons` fields, and `controls.spec.mjs` reads
+  `pollGamepad` itself and checks button coverage BOTH ways. Keyboard-only
+  verbs (vial, dust, beat cycle, mute) are asserted to stay unmapped rather
+  than have a button invented for them.
+
 New specs: `luminance`, `shadow-roles`, `room-trim`, `room-decals`,
 `albedo-trim`, `shadow-frustum-e2e`.
 

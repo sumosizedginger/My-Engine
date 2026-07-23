@@ -19,24 +19,42 @@
  */
 export const CONTROLS = [
     { codes: ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
-        label: 'WASD / Arrows', action: 'Move + face', group: 'move' },
-    { codes: ['Space', 'KeyJ'], label: 'Space / J', action: 'Attack', group: 'move' },
-    { codes: ['ShiftLeft', 'ShiftRight', 'KeyK'], label: 'Shift / K', action: 'Dash', group: 'move' },
-    { codes: ['KeyL'], mouse: 'right', label: 'RMB / L', action: 'Guard (tap = parry)', group: 'fight' },
-    { codes: ['KeyT'], label: 'T', action: 'Lock on', group: 'fight' },
-    { codes: ['KeyY'], label: 'Y', action: 'Switch target', group: 'fight' },
-    { codes: ['KeyQ', 'KeyR'], label: 'Q/R', action: 'Cycle weapon', group: 'fight' },
-    { codes: ['KeyE', 'KeyF'], label: 'E / F', action: 'Interact', group: 'use' },
-    { codes: ['KeyG'], label: 'G', action: 'Grapple', group: 'use' },
+        label: 'WASD / Arrows', action: 'Move + face', group: 'move',
+        pad: 'Left stick', padAxes: [0, 1] },
+    { label: 'Right stick', action: 'Aim', group: 'move', padOnly: true,
+        pad: 'Right stick', padAxes: [2, 3] },
+    { codes: ['Space', 'KeyJ'], label: 'Space / J', action: 'Attack', group: 'move',
+        pad: 'A', padButtons: [0] },
+    { codes: ['ShiftLeft', 'ShiftRight', 'KeyK'], label: 'Shift / K', action: 'Dash', group: 'move',
+        pad: 'B', padButtons: [1] },
+    { codes: ['KeyL'], mouse: 'right', label: 'RMB / L', action: 'Guard (tap = parry)', group: 'fight',
+        pad: 'RT', padButtons: [7] },
+    { codes: ['KeyT'], label: 'T', action: 'Lock on', group: 'fight',
+        pad: 'LT', padButtons: [6] },
+    { codes: ['KeyY'], label: 'Y', action: 'Switch target', group: 'fight',
+        pad: 'L3', padButtons: [10] },
+    { codes: ['KeyQ', 'KeyR'], label: 'Q/R', action: 'Cycle weapon', group: 'fight',
+        pad: 'LB / RB', padButtons: [4, 5] },
+    { codes: ['KeyE', 'KeyF'], label: 'E / F', action: 'Interact', group: 'use',
+        pad: 'X', padButtons: [2] },
+    { codes: ['KeyG'], label: 'G', action: 'Grapple', group: 'use',
+        pad: 'Y', padButtons: [3] },
     { codes: ['KeyV'], label: 'V', action: 'Memory Vial', group: 'use' },
     { codes: ['KeyC'], label: 'C', action: 'Entropy Dust', group: 'use' },
-    { codes: ['Tab'], label: 'Tab', action: 'Map', group: 'use' },
-    { codes: ['KeyM'], label: 'M', action: 'Mirror travel', group: 'use' },
+    { codes: ['Tab'], label: 'Tab', action: 'Map', group: 'use',
+        pad: 'Select', padButtons: [8] },
+    { codes: ['KeyM'], label: 'M', action: 'Mirror travel', group: 'use',
+        pad: 'D-up', padButtons: [12] },
     { codes: ['BracketLeft', 'BracketRight', 'PageUp', 'PageDown'],
         label: '[ / ]', action: 'Previous / next beat', group: 'meta' },
-    { codes: ['Enter', 'NumpadEnter'], label: 'Enter', action: 'Advance story', group: 'meta' },
+    { codes: ['Enter', 'NumpadEnter'], label: 'Enter', action: 'Advance story', group: 'meta',
+        pad: 'A', padButtons: [0] },
+    // Mute is keyboard-only ON PURPOSE. It gave up its trigger slot to the
+    // defensive verbs (Z3/Z4) — it is a settings toggle, not something you
+    // reach for mid-fight. The spec asserts it stays that way.
     { codes: ['KeyN'], label: 'N', action: 'Mute', group: 'meta' },
-    { codes: ['KeyP', 'Escape'], label: 'P / Esc', action: 'Pause', group: 'meta' },
+    { codes: ['KeyP', 'Escape'], label: 'P / Esc', action: 'Pause', group: 'meta',
+        pad: 'Start', padButtons: [9] },
     // Dev-only: documented, but kept off the player's cheat sheet.
     { codes: ['F1'], label: 'F1', action: 'God mode', dev: true },
     { codes: ['F2'], label: 'F2', action: 'Defeat current boss', dev: true },
@@ -48,8 +66,30 @@ export const CONTROLS = [
 /** The player-facing cheat sheet, grouped, built from the table above. */
 export function controlSheet() {
     const line = (g) => CONTROLS
-        .filter((c) => !c.dev && c.group === g)
+        .filter((c) => !c.dev && !c.padOnly && c.group === g)
         .map((c) => `${c.label} ${c.action.toLowerCase()}`)
+        .join(' · ');
+    return [line('move'), line('fight'), line('use'), line('meta')]
+        .filter(Boolean).join('\n');
+}
+
+/**
+ * The gamepad cheat sheet, from the SAME table.
+ *
+ * This used to be four hand-written lines in `ui/hud.js`, and it had already
+ * drifted: it called D-up "mood" while the binding table and the docs call it
+ * mirror travel, which is what the button actually does. The keyboard sheet was
+ * unified into this table an earlier session; the pad one was left behind,
+ * which is exactly how it got the chance to disagree.
+ *
+ * Entries with no `pad` are keyboard-only and simply do not appear — the Memory
+ * Vial, the Entropy Dust, the beat cycle and Mute have no button, and a legend
+ * that invented one would be worse than a legend that omits it.
+ */
+export function padSheet() {
+    const line = (g) => CONTROLS
+        .filter((c) => !c.dev && c.pad && c.group === g)
+        .map((c) => `${c.pad} ${c.action.toLowerCase()}`)
         .join(' · ');
     return [line('move'), line('fight'), line('use'), line('meta')]
         .filter(Boolean).join('\n');
