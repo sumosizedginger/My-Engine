@@ -62,6 +62,7 @@ import { run as runFeelVisuals } from './game/game-feel-visuals.spec.mjs';
 import { run as runLuminance } from './game/luminance.spec.mjs';
 import { run as runShadowRoles } from './game/shadow-roles.spec.mjs';
 import { run as runRoomTrim } from './game/room-trim.spec.mjs';
+import { run as runRoomDecals } from './game/room-decals.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -138,6 +139,7 @@ async function main() {
     runNamed('luminance', runLuminance);
     runNamed('shadow-roles', runShadowRoles);
     runNamed('room-trim', runRoomTrim);
+    runNamed('room-decals', runRoomDecals);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

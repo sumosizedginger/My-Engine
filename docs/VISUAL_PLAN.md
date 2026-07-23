@@ -249,20 +249,44 @@ Two things worth knowing:
   contrast. That trade is exactly what the contrast floor exists to arbitrate,
   and this was the first time it did.
 
-**Still open, and deliberately so.** The plan listed four items and this delivered
-one and a half. Remaining, in value order:
+**Done — decals:** `src/game/world/room-decals.js`, one weathering per dungeon
+kit. Every kit already declared an `atmosphere` — `drips`, `vapor`,
+`heat_shimmer`, `grit` — and every one was a particle effect in the air with
+nothing on the ground agreeing with it. The Mire had bubbles rising off a floor
+with no algae on it; the Pyre had heat shimmer over unscorched stone; the Cryo
+Vault had vapour above ice that had never frosted.
 
-1. **Vertical interest inside rooms.** Floors are flat. Height variation is the
-   main thing separating "a room" from "a place", and it is also the item that
-   *cannot* follow the two safety rules above — it changes where the player can
-   walk, so it needs per-level design work and a traversal re-audit, not a
-   global pass.
-2. **Trim and edge geometry at the floor/wall junction** — a visible plinth. Same
-   caveat, smaller: it eats a cell of floor around the perimeter, so door
-   triggers and pickup reachability need checking.
-3. **Decals** — scorch, water staining, moss in the Mire, frost in the Cryo — as
-   vertex-colour work at bake time. Free at runtime and gameplay-neutral by
-   construction, so this is the cheapest of the three.
+This is **colour only** — it recolours voxels that already exist and never adds,
+removes or moves one, so the safety proof is simply that the cell set is
+identical before and after. Two things it also has to get right:
+
+- **Patches, not speckle.** A per-cell random threshold reads as compression
+  artefacts. Strength comes from smooth value noise on a 6-cell lattice, so
+  weathering pools. The spec walks a floor row and counts how often "weathered"
+  flips: random at 36% coverage would flip ~11 times across 25 cells, patches
+  flip ≤6.
+- **Walls stain vertically.** Sampling a wall on `(x, z)` gives it the floor's
+  pattern smeared sideways, which reads as a texture bug. Walls sample on
+  `(x+z, y)` so staining runs down a face. The wall *cap* is skipped entirely —
+  the kit brightens it as a lit inlay, and staining over that removes the one
+  piece of shading the room already had.
+
+`applyKit` avoids drifting the certification band by being brighten-only, which
+cannot work here — scorch is dark and that is the point. Instead coverage and
+strength are bounded and the bound is **asserted**, at under 8 points of albedo
+drift against bands 40–45 wide. Measured live, no level moved out of band and
+contrast held or rose (Beat 08 78 → 102: bone dust on a bone floor).
+
+**Still open, and deliberately so:**
+
+1. **Vertical interest inside rooms.** Floors are flat, and height variation is
+   the main thing separating "a room" from "a place". It is also the one item
+   that *cannot* follow either safety rule above — it changes where the player
+   can walk — so it needs per-level design work and a traversal re-audit, not a
+   global pass. This is the remaining item worth a designer's time.
+2. **A plinth at the floor/wall junction.** Same caveat, much smaller: it eats a
+   cell of floor around the perimeter, so door triggers and pickup reachability
+   need re-checking.
 
 The headroom is still there: the campaign runs at ~37k triangles per dungeon
 against a budget that will take several hundred thousand.

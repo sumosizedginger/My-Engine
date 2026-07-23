@@ -137,6 +137,38 @@ box, not as a place.
   while keeping the contrast. That trade is what the contrast floor exists to
   arbitrate, and this is the first time it did.
 
+### The atmosphere and the floor disagreed
+
+Every dungeon kit declared an `atmosphere` — `drips`, `vapor`, `heat_shimmer`,
+`grit` — and every one of them was a particle effect **in the air with nothing
+on the ground agreeing with it**. The Mire had bubbles rising off a floor with
+no algae on it. The Pyre had heat shimmer over unscorched stone. The Cryo Vault
+had vapour above ice that had never frosted.
+
+- **One weathering per kit**, at bake time: grave dust in the Crypt, oil and
+  scorch in the Spindle, wind-driven sand in the Sink, waterline staining in the
+  Sluice, algae in the Mire, scorch in the Pyre, frost creeping up the Cryo
+  Vault's walls.
+- **It is colour only.** It recolours voxels that already exist and never adds,
+  removes or moves one — so the safety proof is just that the cell set is
+  identical before and after. No collision, no traversal, no `getVoxelAt`
+  answer changes.
+- **Patches, not speckle.** A per-cell random threshold reads as compression
+  artefacts; weathering pools. Strength comes from smooth value noise on a
+  6-cell lattice. The spec walks a floor row and counts how often "weathered"
+  flips — random at 36% coverage would flip ~11 times across 25 cells, patches
+  flip six or fewer.
+- **Walls stain vertically.** Sampling a wall on `(x, z)` gives it the floor's
+  pattern smeared sideways, which reads as a texture bug rather than as dirt.
+  The wall *cap* is skipped entirely: the kit brightens it as a lit inlay, and
+  staining over that removes the one piece of shading the room already had.
+- `applyKit` keeps off the certification band by being brighten-only. That
+  cannot work here — scorch is dark and that is the point — so coverage and
+  strength are bounded instead, and **the bound is asserted**: under 8 points of
+  albedo drift against bands 40–45 wide. Measured live, no level left its band
+  and contrast held or rose. Beat 08 went **78 → 102** — bone dust on a bone
+  floor is exactly the case where a decal earns its place.
+
 ### Nothing in the world could be shadowed
 
 151 meshes in a room. **37 cast. 7 received.** Props did not darken under an

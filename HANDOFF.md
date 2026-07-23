@@ -21,7 +21,7 @@ assertion before changing it.
 
 ## State
 
-Everything below is committed and green. Suite: **2025 unit / 2787 total**.
+Everything below is committed and green. Suite: **2085 unit / 2847 total**.
 
 | area | state |
 |---|---|
@@ -33,7 +33,7 @@ Everything below is committed and green. Suite: **2025 unit / 2787 total**.
 | Bulwark Shield as a gated pickup | built |
 | Controls unified into one table | built |
 | **Renderer / lighting: all six VISUAL_PLAN tickets** | **implemented** |
-| Ticket 6's vertical interest / plinth / decals | **not done — see below** |
+| Ticket 6's vertical interest inside rooms | **not done — needs design, see below** |
 | 44 binary certification captures | **stale** — regenerate, see below |
 
 ## What to do next
@@ -46,15 +46,19 @@ one outstanding item that blocks nothing else but misrepresents the build until
 it is done.
 
 Then, if you want to keep going on looks, **ticket 6 of `docs/VISUAL_PLAN.md` is
-the only one not finished**. It delivered bake-time silhouette trim; three items
-remain, listed there in value order. The important thing to understand before
-starting: the trim that landed is safe to apply to all fifteen levels at once
-*because* it only adds geometry above the wall top and only on the room
-perimeter, which is provably outside anywhere the player can be. **Vertical
-interest inside rooms cannot follow those rules** — it changes where the player
-can walk, so it needs per-level design and a traversal re-audit, not a global
-pass. Decals are the cheapest remaining item and are gameplay-neutral by
-construction.
+the only one not finished**. It delivered bake-time silhouette trim and per-kit
+weathering; **vertical interest inside rooms** is what remains, and it is the
+item worth a designer rather than an implementer.
+
+Understand why before you start. Both things that landed are safe to apply to
+all fifteen levels in one pass *because of a structural argument*, not because
+they were tested carefully: the trim only adds geometry **above the wall top**
+and only on the **room perimeter**, which is provably nowhere the player can
+stand; the weathering is **colour only**, so the cell set is byte-identical
+before and after. Each has a spec that checks the argument rather than the
+output. **Vertical interest can make neither claim** — changing floor heights
+changes where the player can walk, so it needs per-level design and a traversal
+re-audit. Do not try to do it globally.
 
 Smaller things that are known-open:
 

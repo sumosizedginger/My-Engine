@@ -529,8 +529,21 @@ measured, and each is recorded rather than quietly worked around.
   dark violet sky. Vertical interest, plinths and decals remain open and are
   documented as needing per-level work rather than a global pass.
 
+- **T6b — bake-time decals.** `world/room-decals.js`, one weathering per kit.
+  Every kit declared an `atmosphere` ('drips', 'vapor', 'heat_shimmer') that had
+  no counterpart on any surface — bubbles over a floor with no algae, heat
+  shimmer over unscorched stone. Colour only, so the cell set is byte-identical
+  and the safety proof is trivial. Smooth value noise on a 6-cell lattice so
+  weathering pools instead of speckling (the spec counts run-flips along a floor
+  row: random would flip ~11 times in 25 cells, patches flip ≤6); walls sample
+  on `(x+z, y)` so staining runs *down* a face; the lit wall cap is skipped.
+  `applyKit` avoids the band by being brighten-only, which cannot work for
+  scorch — so coverage/strength are bounded and the bound is asserted at <8
+  points of albedo drift. No level left its band; Beat 08 contrast **78 → 102**.
+
 New probes: `contrast-probe`, `shadow-census`, `env-probe`, `trim-cost`.
-New specs: `luminance`, `shadow-roles`, `room-trim`, `shadow-frustum-e2e`.
+New specs: `luminance`, `shadow-roles`, `room-trim`, `room-decals`,
+`shadow-frustum-e2e`.
 
 ### Session 12 — the hero was swinging backwards
 

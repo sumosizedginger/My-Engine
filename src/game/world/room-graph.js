@@ -19,6 +19,7 @@ import { sfx } from '../../audio/synth.js';
 import { makeKeyStore } from './keys.js';
 import { applyBlockerToMap, createBlockerRuntime } from './blockers.js';
 import { applyRoomTrim } from './room-trim.js';
+import { applyRoomDecals } from './room-decals.js';
 import { scaleEnemyHp, beatNumberOf, applyBossCurve } from './threat-curve.js';
 import { gsfx } from '../audio/sfx-bank.js';
 import { buildPickupMesh, disposePickupMesh } from '../assets/pickup-shapes.js';
@@ -247,6 +248,14 @@ export function createDungeon(ctx, def, opts = {}) {
         // `__trimOff` is a QA escape hatch (tests/qa/trim-cost.mjs) so the cost
         // of the trim can be measured with it on and off in one session,
         // instead of against a remembered number from a different build.
+        // Weathering — colour only, so it can never change what the player can
+        // do. Runs after the kit (it shades from the final colours) and before
+        // trim (trim derives its own shade from the wall cap, which weathering
+        // deliberately does not touch).
+        applyRoomDecals(map, room, DUNGEON_KITS[def.id], roomId, {
+            enabled: def.decals !== false
+                && !(typeof window !== 'undefined' && window.__sovereignScar?.__decalsOff),
+        });
         applyRoomTrim(map, room, roomId, {
             enabled: def.trim !== false
                 && !(typeof window !== 'undefined' && window.__sovereignScar?.__trimOff),
