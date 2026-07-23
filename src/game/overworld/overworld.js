@@ -9,6 +9,36 @@ import { CRUST_COLORS, ABYSS_COLORS } from '../assets/palettes.js';
 import { fillBox } from '../../voxel/helpers.js';
 import { sfx } from '../../audio/synth.js';
 import * as THREE from 'three';
+import { tuneForFloor } from '../render/albedo-trim.js';
+
+/**
+ * Base light trim for the overworld, before the per-region albedo compensation.
+ *
+ * The overworld is the one place with no ceiling and no walls, so it takes the
+ * key light across its whole floor plane and reads much brighter than any
+ * dungeon under the same preset — when the key rose from 1.9 to 2.55 in the
+ * ambient rebalance the start screen went to 97 against a ceiling of 90 while
+ * every dungeon sat at 55–79. So the Crust is trimmed DOWN.
+ *
+ * The Abyss is the opposite problem and a worse one. Every Abyss screen shares
+ * one dark floor, and all eight measured **18–27 against a floor of 35** — dark
+ * enough that an enemy standing next to the player was hard to pick out. Never
+ * caught, because the gate samples the overworld in its default Crust state.
+ */
+const OVERWORLD_BASE_TUNE = {
+    crust: { key: 0.70, ambient: 0.90 },
+    // Trimmed from 1.85/2.05: at that level the Cryomire's ice put the screen
+    // at 82 against a ceiling of 75. Every Abyss screen shares one floor, so
+    // albedo compensation cannot separate them — the difference is the ice
+    // itself, and the base has to clear the brightest region.
+    abyss: { key: 1.60, ambient: 1.78 },
+};
+
+/** The floor each base trim was tuned against; compensation is relative to it. */
+const REFERENCE_FLOOR = {
+    crust: CRUST_COLORS.clayField,
+    abyss: ABYSS_COLORS.abyssFloor,
+};
 
 export const SCREEN_HALF = 23; // 47×47 cells ≈ the plan's 48-unit screens
 
@@ -81,13 +111,25 @@ export function createOverworld(ctx, screensDef, opts = {}) {
 
     const rooms = {};
     for (const [sid, s] of Object.entries(screensDef.screens)) {
+        const screenFloor = (mood === 'abyss' ? s.abyssFloorColor : s.floorColor)
+            || (mood === 'abyss' ? ABYSS_COLORS.abyssFloor : CRUST_COLORS.clayField);
+
         rooms[sid] = {
             grid: s.grid,
             half: SCREEN_HALF,
             wallH: 2, // low border cliffs
             spawn: s.spawn || { x: 0, z: 0 },
-            floorColor: (mood === 'abyss' ? s.abyssFloorColor : s.floorColor)
-                || (mood === 'abyss' ? ABYSS_COLORS.abyssFloor : CRUST_COLORS.clayField),
+            floorColor: screenFloor,
+            // Per-SCREEN light trim, derived from how dark this region's rock
+            // is. The eight regions are deliberately different stone sitting
+            // under one set of lights, so one level-wide trim gave Tombfields'
+            // pale clay 76 and the Spindle's iron 32 — in the same level, from
+            // the same lighting, with a floor of 45. See render/albedo-trim.js.
+            lightTune: tuneForFloor(
+                OVERWORLD_BASE_TUNE[mood] || OVERWORLD_BASE_TUNE.crust,
+                screenFloor,
+                REFERENCE_FLOOR[mood] || REFERENCE_FLOOR.crust
+            ),
             wallColor: mood === 'abyss' ? ABYSS_COLORS.abyssWall : CRUST_COLORS.slate,
             onBake: s.onBake,
             doors: (s.edges || []).map((e) => ({
@@ -143,14 +185,9 @@ export function createOverworld(ctx, screensDef, opts = {}) {
         id: levelId,
         name: screensDef.name || 'The Scarred Crust',
         mood,
-        // The overworld is the one place with no ceiling and no walls, so it
-        // takes the key light across its whole floor plane and reads much
-        // brighter than any dungeon under the same preset. When the key rose
-        // from 1.9 to 2.55 in the ambient rebalance it went to 97 against a
-        // ceiling of 90 while every dungeon sat at 55–79. This trims the key
-        // back for the open screens only, rather than dragging the preset down
-        // and re-darkening fourteen interiors to fix one exterior.
-        lightTune: { key: 0.7, ambient: 0.9 },
+        // Level-wide fallback. Every screen carries its own albedo-compensated
+        // trim (see above); this is what a screen without one would get.
+        lightTune: OVERWORLD_BASE_TUNE[mood] || OVERWORLD_BASE_TUNE.crust,
         start: startScreen,
         banner: screensDef.banner || 'The Scarred Crust — find the wounds',
         rooms,

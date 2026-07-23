@@ -370,6 +370,11 @@ export function createDungeon(ctx, def, opts = {}) {
                 if (gridDistance(def.rooms[otherId], room) >= 2) disposeRoom(otherId);
             }
         }
+        // A room may trim the light on top of the level's own trim. Falls back
+        // to the level value, so a room without one restores the level default
+        // rather than inheriting whatever the previous room asked for.
+        game?.mood?.setTune?.(room.lightTune || def.lightTune || null);
+
         keyStore.markVisited?.(roomId); // W6 map data
 
         // Z6: a Zelda dungeon INTRODUCES its idea before it demands it. The
@@ -843,6 +848,19 @@ export function createDungeon(ctx, def, opts = {}) {
          * The one room you always see first was the one room that worked.
          * The frame loop aims the sun with this.
          */
+        /**
+         * Light trim for the room the player is in, falling back to the level's.
+         *
+         * `enterRoom` applies this on every transition, but the FIRST room is
+         * entered while the level is still being constructed, with no `game` to
+         * reach the mood controller through — so the loader has to ask for it.
+         * Without this the overworld's per-screen trim only took effect once
+         * you walked somewhere, and a level loaded directly into a dark region
+         * (which is exactly what a certification capture does) stayed dark.
+         */
+        currentRoomTune() {
+            return def.rooms[currentRoomId]?.lightTune || def.lightTune || null;
+        },
         currentRoomOrigin() {
             const room = def.rooms[currentRoomId];
             return room ? roomOrigin(room) : null;

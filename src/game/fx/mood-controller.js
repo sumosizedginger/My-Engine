@@ -116,6 +116,30 @@ export class MoodController {
         return this.mood;
     }
 
+    /**
+     * Set the per-location light trim and re-derive the frame.
+     *
+     * Trim used to be per LEVEL only, applied once at load. That works while
+     * every room in a level has a similar floor — and breaks completely on the
+     * overworld, whose eight regions are deliberately different rock. Measured:
+     * with one level-wide trim, Tombfields' pale clay read **76** and the
+     * Spindle's iron read **32** against a floor of 45, in the same level, from
+     * the same lights. The gate never saw it because it samples the *start*
+     * screen, which is one of the pale ones.
+     *
+     * Deliberately a trim and not a preset: the mood still owns colour and
+     * character, and a location can only scale what the mood already decided.
+     */
+    setTune(tune) {
+        const a = this.tune || null, b = tune || null;
+        // Cheap identity check — this runs on every room transition.
+        if (a === b) return;
+        if (a && b && a.ambient === b.ambient && a.key === b.key
+            && a.fill === b.fill && a.rim === b.rim) return;
+        this.tune = b;
+        this.reapplyVisual();
+    }
+
     apply(moodName, opts = {}) {
         const { audio = true, music } = opts;
         this.mood = moodName in MOOD_PRESETS ? moodName : 'crust';

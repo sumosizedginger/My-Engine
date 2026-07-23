@@ -482,7 +482,7 @@ New specs `music` (309 assertions) and `game-feel-visuals`; probes
 `synth.channelGain(channel)`, so game-side persistent buses honour the same
 volume settings.
 
-### Session 13 — the renderer pass, all six tickets (suite 2575 → 2787)
+### Session 13 — the renderer pass, all six tickets (suite 2575 → 2867)
 
 All six tickets of `docs/VISUAL_PLAN.md` implemented in order. The plan had been
 written for another agent to pick up cold; the owner asked for it to be built
@@ -541,9 +541,30 @@ measured, and each is recorded rather than quietly worked around.
   scorch — so coverage/strength are bounded and the bound is asserted at <8
   points of albedo drift. No level left its band; Beat 08 contrast **78 → 102**.
 
-New probes: `contrast-probe`, `shadow-census`, `env-probe`, `trim-cost`.
+- **Certification captures regenerated** (all 44) via a new repeatable script,
+  `tests/qa/certification-captures.mjs` — 0 page errors, luminance sampled from
+  the exact frame stored. Two findings came straight out of doing it:
+  **(a)** the overworld's eight regions are different rock under one level-wide
+  trim, so identical lighting gave Bonetown 87 and the Spindle **32** against a
+  floor of 45 — and every Abyss screen sat at **18–27** against a floor of 35.
+  Fixed with per-room light trim plus `render/albedo-trim.js`, which *derives*
+  each region's compensation from its floor colour in **linear** light (iron vs
+  clay differ 1.5× as stored bytes and 2.2× as light; the sRGB ratio would have
+  under-corrected by half). Crust 32–87 → **61–77**, Abyss 18–27 → **41–59**.
+  **(b)** boss rooms have never been measured by the gate; four of fourteen are
+  out of band. Left reported-not-gated because the numbers swing 20+ points
+  between runs (the boss's emissive pulses) and the bands were calibrated on
+  empty rooms — a light trim moved Cryo by one point, proving the brightness is
+  emissive + bloom, not the light rig.
+- The capture script's first run produced **sixteen identical pictures of one
+  screen filed under eight region names**: `createOverworld` only honours a
+  saved position when `pos.world === levelId`, and `world` had been omitted.
+  Caught by two files being byte-identical.
+
+New probes: `contrast-probe`, `shadow-census`, `env-probe`, `trim-cost`,
+`certification-captures`.
 New specs: `luminance`, `shadow-roles`, `room-trim`, `room-decals`,
-`shadow-frustum-e2e`.
+`albedo-trim`, `shadow-frustum-e2e`.
 
 ### Session 12 — the hero was swinging backwards
 

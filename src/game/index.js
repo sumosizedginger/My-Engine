@@ -55,6 +55,7 @@ import { getWeapon } from './combat/weapons.js';
 import { POISE_MAX } from './combat/guard.js';
 import { dev } from './dev/dev-mode.js';
 import { HeartDropManager } from './world/heart-drops.js';
+import { patchOverworld } from './world/keys.js';
 import { DeathEcho } from './world/death-echo.js';
 import { AnchorThread } from './narrative/anchor-thread.js';
 import { getRunMode, setActiveRunMode } from './kernel/run-mode.js';
@@ -440,7 +441,11 @@ function loadLevel(id) {
     mood.apply(moodName, {
         audio: true,
         music: level.musicBed || (level.boss ? 'boss' : (moodName === 'abyss' ? 'abyss' : 'crust')),
-        tune: level.lightTune || meta.lightTune || null,
+        // The room the level opens INTO wins over the level default: the
+        // overworld trims light per screen (its regions are different rock),
+        // and the first screen is entered before there is a `game` to push the
+        // trim through, so it has to be pulled here.
+        tune: level.currentRoomTune?.() || level.lightTune || meta.lightTune || null,
     });
     // Only a level that IS a boss arena opens on a boss piece. `level.boss`
     // used to be enough, but every dungeon prebakes its boss so the arena
@@ -1559,6 +1564,13 @@ window.__sovereignScar = {
     mapScreen,
     heartDrops,
     contactShadows,
+    // Needed to regenerate the certification captures headlessly: the HUD has
+    // to be hidden for a clean frame, and the overworld cannot be teleported
+    // across (an unbaked screen is void), so its position and mirror state are
+    // written to the save and the level reloaded. See
+    // tests/qa/certification-captures.mjs.
+    hud,
+    patchOverworld,
     /**
      * Is world point (x, z) inside the key light's shadow frustum?
      *

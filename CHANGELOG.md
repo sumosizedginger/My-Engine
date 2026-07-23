@@ -137,6 +137,81 @@ box, not as a place.
   while keeping the contrast. That trade is what the contrast floor exists to
   arbitrate, and this is the first time it did.
 
+### Same lights, different rock
+
+Regenerating the 44 certification captures — the first time anyone had looked at
+all of them since the Session 6 camera retune — turned up something the gate
+could not see. The overworld's eight regions are deliberately different stone,
+sitting in one level, under one set of lights, with **one level-wide light
+trim**. So identical lighting produced wildly different frames:
+
+| region | floor | lum |
+|---|---|---|
+| Bonetown | ashField | 87 |
+| Pyre | clayDark | 82 |
+| Tombfields | clayField | 76 |
+| Quarry / Cryomire | slate | 52 / 53 |
+| **Spindle** | **iron** | **32** ← floor is 45 |
+
+And in the Abyss, where every region shares one dark floor, **all eight sat at
+18–27 against a floor of 35** — dark enough that an enemy standing next to the
+player was hard to pick out, which is the exact failure the band exists to
+prevent.
+
+None of it was caught because `visual-sanity.spec.mjs` samples the overworld in
+its **default state on its start screen**, and that screen is one of the pale
+crust ones. The same shape as the shadow-frustum bug: the one place being
+measured was the one place that was fine.
+
+- **Light trim can now be set per room, not just per level.** A room falls back
+  to the level's trim, so nothing without one changes.
+- **The overworld's trim is derived, not hand-tuned.** Brightness is a product
+  of light and albedo, so `render/albedo-trim.js` computes a region's
+  compensation *from its floor colour*: half the reflectance gets twice the
+  light. Sixteen hand-tuned numbers would have gone stale the first time
+  somebody changed a floor; this follows it.
+- **Computed in linear light, which is the whole trick.** Iron and clay differ
+  by 1.5× as stored bytes and by **2.2×** as light. Compensating on the sRGB
+  values would have under-corrected by nearly half — and the linear ratio
+  predicts the measured 76/32 = 2.4 almost exactly.
+- **Result: crust 61–77 (was 32–87), abyss 41–59 (was 18–27).** All sixteen
+  screens in band.
+- One more bug it surfaced: the first room of a level is entered *while the
+  level is still being constructed*, with no `game` to reach the mood
+  controller through, so a per-room trim only took effect once you walked
+  somewhere. A level loaded directly into a dark region stayed dark — which is
+  exactly what a certification capture does. The loader pulls the trim now.
+
+### The captures were showing one screen eight times
+
+The overworld half of the capture run was wrong in a way worth writing down.
+`createOverworld` only honours a saved position when `pos.world === levelId`
+(the dev test grid and the real world share screen names but not geography), so
+omitting `world` silently fell back to the start screen — producing **sixteen
+identical pictures of one screen, filed under eight region names**. Two files
+being byte-for-byte identical is what gave it away. `md5sum` on the set is now
+part of checking a capture run.
+
+### Boss rooms have never been measured
+
+The gate samples only the room a level *loads into*, so half the campaign's
+most-looked-at rooms have never been measured. Sampling them found four of
+fourteen outside their band — `spurpit` 98.8 against a ceiling of 90,
+`prayerhollow` 79.7, `twincage` 92.4 and `golemwallow` 94.1 against 75.
+
+This is **reported and not gated**, on purpose. Sampled on separate runs the
+same room disagrees with itself by 20+ points in both directions (Spindle 92.7
+then 69.2; Cryo 81.2 then 91.3), because a boss room contains a boss whose
+emissive pulses and flashes — and a gate needs a statistic that holds still. The
+bands were also calibrated on *empty entry rooms*, so whether an arena
+containing a deliberately glowing boss belongs under the same ceiling is a
+judgement call, not something to settle by loosening a number.
+
+A light trim was tried and rejected: cutting Cryo's key from 3.35 to 2.68 and
+its ambient from 2.02 to 1.24 moved the room by **one point**, which is how we
+know that brightness is coming from emissive bosses and bloom rather than from
+the light rig. `node tests/qa/contrast-probe.mjs` prints the current figures.
+
 ### The atmosphere and the floor disagreed
 
 Every dungeon kit declared an `atmosphere` — `drips`, `vapor`, `heat_shimmer`,

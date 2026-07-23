@@ -21,7 +21,7 @@ assertion before changing it.
 
 ## State
 
-Everything below is committed and green. Suite: **2085 unit / 2847 total**.
+Everything below is committed and green. Suite: **2105 unit / 2867 total**.
 
 | area | state |
 |---|---|
@@ -34,16 +34,26 @@ Everything below is committed and green. Suite: **2085 unit / 2847 total**.
 | Controls unified into one table | built |
 | **Renderer / lighting: all six VISUAL_PLAN tickets** | **implemented** |
 | Ticket 6's vertical interest inside rooms | **not done — needs design, see below** |
-| 44 binary certification captures | **stale** — regenerate, see below |
+| 44 binary certification captures | **regenerated** (`tests/qa/certification-captures.mjs`) |
+| Boss-room luminance | **measured, not gated** — see below |
 
 ## What to do next
 
-**Regenerate the 44 certification captures.** They were already stale before the
-lighting work; tickets 4 and 5 guarantee it — nearly every room in the game gains
-sun shadows and every room's light balance moved. Procedure is in
-`CERTIFICATION.md`; press `H` to hide HUD chrome for clean frames. This is the
-one outstanding item that blocks nothing else but misrepresents the build until
-it is done.
+**Two open questions that need a person, not an implementer:**
+
+1. **Should boss rooms be held to the entry-room band?** Boss rooms have never
+   been measured by the gate, and sampling them found four of fourteen outside
+   their band (`spurpit` 98.8 vs a ceiling of 90; `prayerhollow` 79.7,
+   `twincage` 92.4, `golemwallow` 94.1 vs 75). It is not gated because the
+   numbers move 20+ points between runs — the boss's emissive pulses — and
+   because the bands were calibrated on *empty* entry rooms. An arena containing
+   a deliberately glowing boss may legitimately belong above that ceiling. Do
+   not settle it by loosening the number. `node tests/qa/contrast-probe.mjs`
+   prints the figures.
+2. **Is the Abyss band still right?** `[35,75]` was set when the mood was flat
+   (ambient 3.4 against a key of 2.1). The lighting has changed underneath it,
+   so the target was chosen by the model that has since been replaced. Look at a
+   Crust and an Abyss room side by side.
 
 Then, if you want to keep going on looks, **ticket 6 of `docs/VISUAL_PLAN.md` is
 the only one not finished**. It delivered bake-time silhouette trim and per-kit
@@ -80,7 +90,13 @@ node tests/qa/shadow-census.mjs    # who casts, who receives, who is exempt
 node tests/qa/env-probe.mjs        # is the environment map actually installed
 node tests/qa/trim-cost.mjs        # triangles + draw calls, trim on vs off
 node tests/qa/swing-readout.mjs    # blade tip world position through a strike
+node tests/qa/certification-captures.mjs   # re-shoot the 44 cert images
 ```
+
+After a capture run, `md5sum docs/media/certification/ow-*.png | sort -u | wc -l`
+must be 16. The first run produced sixteen identical pictures of one screen
+filed under eight region names, because `createOverworld` only honours a saved
+position when `pos.world === levelId` and the script had omitted `world`.
 
 ## How the owner works
 
@@ -131,14 +147,27 @@ When the mood drone was removed, the `drone:` field stayed in `MOOD_PRESETS` —
 so the next reader would reasonably conclude it was meant to be playing and wire
 it back up. Remove the data too, and add the spec that fails if it returns.
 
-**5. The room you always see first is the room that always works.**
-The sun's shadow frustum sat on the world origin and never moved, so exactly one
-room per dungeon had sun shadows — and every dungeon starts at grid (0,0), so it
-was always the first room you saw. The overworld was worse: **0 of 49 screens**,
-because it lives at world coordinates 512–896 and nobody had ever counted it.
-Whenever you check a spatial property, sweep **every** room of **every** level.
-A spot check will land on the origin room and pass. `tests/shadow-frustum-e2e.spec.mjs`
-is the shape to copy; reverting the fix fails 31 of its 50 assertions.
+**5. The place being measured is the one place that is fine.**
+This project's most expensive recurring bug, and it has now happened three
+times:
+
+- The sun's shadow frustum sat on the world origin and never moved, so exactly
+  one room per dungeon had sun shadows — and every dungeon starts at grid (0,0),
+  so it was always the first room you saw. The overworld was worse: **0 of 49
+  screens**, at world coordinates 512–896, never counted by anything.
+- The luminance gate samples the room a level **loads into**. Boss rooms — half
+  the campaign's most-looked-at rooms — had never been measured at all, and four
+  of fourteen turned out to be outside their band.
+- The gate samples the overworld on its **start screen in its default state**.
+  That screen is one of the pale crust ones, so the Spindle sitting at 32
+  against a floor of 45, and every Abyss screen sitting at 18–27 against a floor
+  of 35, were invisible for the life of the project.
+
+Whenever you check a property that varies by place, sweep **every** place. A
+spot check lands on the sample that was chosen because it was convenient, and
+convenient usually means representative of nothing.
+`tests/shadow-frustum-e2e.spec.mjs` is the shape to copy; reverting that fix
+fails 31 of its 50 assertions.
 
 **6. `src/engine/lights.js: updateShadowFollow` is bait.**
 It looks exactly like the fix for trap 5 and it is not: it takes a single

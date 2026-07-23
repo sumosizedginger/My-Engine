@@ -17,23 +17,44 @@ Method: A/B are asserted per level by `tests/visual-sanity.spec.mjs`
 (entry + boss room per dungeon, one screen per region per state), zero
 pageerrors across every capture run. Lum column: entry / boss-room samples.
 
-> **Stale captures (Session 6).** Every screenshot below was taken with the
-> pre-Session-6 camera (65° FOV, shallower tilt). The camera has since been
-> retuned to read top-down (40° FOV, steeper rig, coverage refit), so the
-> stored images no longer match what the game renders. **The images are stale;
-> the claims have been re-verified.**
+> **Captures regenerated 2026-07-22.** All 44 images below were re-shot after
+> the renderer pass (`docs/VISUAL_PLAN.md` tickets 1–6), which changed what
+> every room looks like: nearly every room in the game gained sun shadows, every
+> solid mesh started receiving them, the ambient/key balance moved in both
+> moods, and rooms gained bake-time trim and weathering. They had also been
+> stale since the Session 6 camera retune (65° FOV → 40°) before that.
 >
-> - Column **B** (luminance): re-sampled on all 14 dungeon entries at the new
->   framing — 36.1–76.1, every value in band, 0 pageerrors. `visual-sanity.spec.mjs`
->   also runs on every suite pass and is green.
-> - Column **C** (camera frames the room): re-checked. A numeric sweep of all 15
->   levels puts coverage (visible width ÷ room width) at **1.54** for dungeon
->   rooms and **1.04** for overworld screens — rooms fill the frame with margin,
->   no void bleed; spot-confirmed by eye on the cases most sensitive to a height
->   change (Beat 04's multi-Y monument, Beat 14's wrap-shader core).
+> Regenerate with `node tests/qa/certification-captures.mjs` (add
+> `--only=dungeons` or `--only=overworld` to re-shoot half). The script hides
+> HUD chrome, enters each room properly rather than teleporting, and samples the
+> luminance of the exact frame it stores. **0 page errors** across the run.
 >
-> Regenerating the 44 stored images is still outstanding — it is a large binary
-> refresh and pairs naturally with the by-hand playthrough.
+> The overworld half of the first attempt was wrong in a way worth recording:
+> `createOverworld` only honours a saved position when `pos.world === levelId`,
+> so omitting `world` silently fell back to the start screen and produced
+> **sixteen identical pictures of one screen, filed under eight region names**.
+> Two files being byte-for-byte identical is what gave it away.
+
+> **Boss rooms have never been measured.** Columns B and the Lum figures below
+> come from `visual-sanity.spec.mjs`, which samples only the room a level
+> *loads into*. Regenerating the captures measured boss rooms for the first
+> time and **four of fourteen sit outside their band** — `spurpit` 98.8 (ceiling
+> 90), `prayerhollow` 79.7, `twincage` 92.4 and `golemwallow` 94.1 (ceiling 75).
+>
+> This is not gated yet, and deliberately so: sampled on separate runs the same
+> room disagrees with itself by 20+ points in both directions (Spindle 92.7 then
+> 69.2; Cryo 81.2 then 91.3), because a boss room contains a boss whose emissive
+> pulses and flashes. A gate needs a statistic that holds still. Note also that
+> the bands were calibrated on **empty entry rooms**, so whether a boss arena
+> containing a deliberately glowing boss should be held to the same ceiling is a
+> judgement call for the owner, not something to settle by loosening a number.
+> `node tests/qa/contrast-probe.mjs` prints the current figures.
+>
+> A light trim was tried and rejected: a per-room `lightTune` cut Cryo's key
+> from 3.35 to 2.68 and its ambient from 2.02 to 1.24 and moved the room's
+> luminance by **one point**, which is how we know the brightness is coming from
+> emissive bosses and bloom rather than from the light rig. It was reverted
+> rather than left in place as an unused mechanism.
 
 Fixes landed during this pass (fix-forward): Beat 03 spurpit floor
 (clay 91→72), Beat 09 moothall bone plaza + floor lift (11→39), Beat 11
@@ -45,20 +66,20 @@ spindle→iron, quarry→slate, bonetown→new ashField; all 20–105 → 57–8
 
 | Beat | Rooms | A | B | C | D | E | F | G | H | I | Lum | Shots |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 01 Crypt Breach | 6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 56 / 62 | [entry](docs/media/certification/beat-01-crypt-entry.png) · [boss](docs/media/certification/beat-01-crypt-boss.png) |
-| 02 Eastern Spindle | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 58 / 58 | [entry](docs/media/certification/beat-02-spindle-entry.png) · [boss](docs/media/certification/beat-02-spindle-boss.png) |
-| 03 Duval Sink | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 70 / 72 | [entry](docs/media/certification/beat-03-sink-entry.png) · [boss](docs/media/certification/beat-03-sink-boss.png) |
-| 04 Sky Monument | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 63 / 55 | [entry](docs/media/certification/beat-04-sky-entry.png) · [boss](docs/media/certification/beat-04-sky-boss.png) |
-| 05 Citadel of the Proxy | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 57 / 56 | [entry](docs/media/certification/beat-05-citadel-entry.png) · [boss](docs/media/certification/beat-05-citadel-boss.png) |
-| 06 Bleeding Quarry | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 40 / 42 | [entry](docs/media/certification/beat-06-quarry-entry.png) · [boss](docs/media/certification/beat-06-quarry-boss.png) |
-| 07 Sluice of Tears | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 41 | [entry](docs/media/certification/beat-07-sluice-entry.png) · [boss](docs/media/certification/beat-07-sluice-boss.png) |
-| 08 Bone Forest | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 40 | [entry](docs/media/certification/beat-08-bone-entry.png) · [boss](docs/media/certification/beat-08-bone-boss.png) |
-| 09 Ruined Town | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 39 | [entry](docs/media/certification/beat-09-town-entry.png) · [boss](docs/media/certification/beat-09-town-boss.png) |
-| 10 Cryo Vault | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 42 / 46 | [entry](docs/media/certification/beat-10-cryo-entry.png) · [boss](docs/media/certification/beat-10-cryo-boss.png) |
-| 11 Rot Mire | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 40 / 36 | [entry](docs/media/certification/beat-11-mire-entry.png) · [boss](docs/media/certification/beat-11-mire-boss.png) |
-| 12 Pyre Peak | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 39 / 39 | [entry](docs/media/certification/beat-12-pyre-entry.png) · [boss](docs/media/certification/beat-12-pyre-boss.png) |
-| 13 GUMOI Tower | 9 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 39 / 36 | [entry](docs/media/certification/beat-13-gumoi-entry.png) · [boss](docs/media/certification/beat-13-gumoi-boss.png) |
-| 14 Leviathan Core | 6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 36 / 41 | [entry](docs/media/certification/beat-14-leviathan-entry.png) · [boss](docs/media/certification/beat-14-leviathan-boss.png) |
+| 01 Crypt Breach | 6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 50 / 59 | [entry](docs/media/certification/beat-01-crypt-entry.png) · [boss](docs/media/certification/beat-01-crypt-boss.png) |
+| 02 Eastern Spindle | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 48 / 89 | [entry](docs/media/certification/beat-02-spindle-entry.png) · [boss](docs/media/certification/beat-02-spindle-boss.png) |
+| 03 Duval Sink | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 65 / 99 | [entry](docs/media/certification/beat-03-sink-entry.png) · [boss](docs/media/certification/beat-03-sink-boss.png) |
+| 04 Sky Monument | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 54 / 77 | [entry](docs/media/certification/beat-04-sky-entry.png) · [boss](docs/media/certification/beat-04-sky-boss.png) |
+| 05 Citadel of the Proxy | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 50 / 88 | [entry](docs/media/certification/beat-05-citadel-entry.png) · [boss](docs/media/certification/beat-05-citadel-boss.png) |
+| 06 Bleeding Quarry | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 37 / 50 | [entry](docs/media/certification/beat-06-quarry-entry.png) · [boss](docs/media/certification/beat-06-quarry-boss.png) |
+| 07 Sluice of Tears | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 56 | [entry](docs/media/certification/beat-07-sluice-entry.png) · [boss](docs/media/certification/beat-07-sluice-boss.png) |
+| 08 Bone Forest | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 39 / 80 | [entry](docs/media/certification/beat-08-bone-entry.png) · [boss](docs/media/certification/beat-08-bone-boss.png) |
+| 09 Ruined Town | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 68 | [entry](docs/media/certification/beat-09-town-entry.png) · [boss](docs/media/certification/beat-09-town-boss.png) |
+| 10 Cryo Vault | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 38 / 92 | [entry](docs/media/certification/beat-10-cryo-entry.png) · [boss](docs/media/certification/beat-10-cryo-boss.png) |
+| 11 Rot Mire | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 37 / 94 | [entry](docs/media/certification/beat-11-mire-entry.png) · [boss](docs/media/certification/beat-11-mire-boss.png) |
+| 12 Pyre Peak | 8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 39 / 62 | [entry](docs/media/certification/beat-12-pyre-entry.png) · [boss](docs/media/certification/beat-12-pyre-boss.png) |
+| 13 GUMOI Tower | 9 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 36 / 62 | [entry](docs/media/certification/beat-13-gumoi-entry.png) · [boss](docs/media/certification/beat-13-gumoi-boss.png) |
+| 14 Leviathan Core | 6 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 42 / 58 | [entry](docs/media/certification/beat-14-leviathan-entry.png) · [boss](docs/media/certification/beat-14-leviathan-boss.png) |
 
 Notes: boss shots were taken mid-fight (HP bar + phase tags visible — the
 G evidence); Beat 13's horizontal banding is the flicker shader, Beat 14's
@@ -70,22 +91,22 @@ original W-gate captures in `docs/media/w-gate/`.
 
 | Region (screen) | State | A | B | C | D | I | Lum | Shots |
 |---|---|---|---|---|---|---|---|---|
-| Tombfields (r0c0) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 84 | [shot](docs/media/certification/ow-tombfields-crust.png) |
-| Tombfields | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 36 | [shot](docs/media/certification/ow-tombfields-abyss.png) |
-| Spindle heights (r0c2) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 75 | [shot](docs/media/certification/ow-spindle-crust.png) |
-| Spindle heights | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 42 | [shot](docs/media/certification/ow-spindle-abyss.png) |
-| Sinklands (r2c0) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 74 | [shot](docs/media/certification/ow-sinklands-crust.png) |
-| Sinklands | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 41 | [shot](docs/media/certification/ow-sinklands-abyss.png) |
-| Citadel approach (r3c4) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 62 | [shot](docs/media/certification/ow-citadel-crust.png) |
-| Citadel approach | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 37 | [shot](docs/media/certification/ow-citadel-abyss.png) |
-| Quarry country (r5c1) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 57 | [shot](docs/media/certification/ow-quarry-crust.png) |
-| Quarry country | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 37 | [shot](docs/media/certification/ow-quarry-abyss.png) |
-| Bonetown (r5c4) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 82 | [shot](docs/media/certification/ow-bonetown-crust.png) |
-| Bonetown | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 39 | [shot](docs/media/certification/ow-bonetown-abyss.png) |
-| Cryomire (r6c5) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 58 | [shot](docs/media/certification/ow-cryomire-crust.png) |
-| Cryomire | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 39 | [shot](docs/media/certification/ow-cryomire-abyss.png) |
-| Pyre ascent (r1c6) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 84 | [shot](docs/media/certification/ow-pyre-crust.png) |
-| Pyre ascent | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 35 | [shot](docs/media/certification/ow-pyre-abyss.png) |
+| Tombfields (r1c1) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 76 | [shot](docs/media/certification/ow-tombfields-crust.png) |
+| Tombfields | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 56 | [shot](docs/media/certification/ow-tombfields-abyss.png) |
+| Spindle heights (r1c3) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 70 | [shot](docs/media/certification/ow-spindle-crust.png) |
+| Spindle heights | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 45 | [shot](docs/media/certification/ow-spindle-abyss.png) |
+| Sinklands (r3c1) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 73 | [shot](docs/media/certification/ow-sinklands-crust.png) |
+| Sinklands | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 49 | [shot](docs/media/certification/ow-sinklands-abyss.png) |
+| Citadel approach (sink) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 77 | [shot](docs/media/certification/ow-citadel-crust.png) |
+| Citadel approach | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 56 | [shot](docs/media/certification/ow-citadel-abyss.png) |
+| Quarry country (r5c1) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 61 | [shot](docs/media/certification/ow-quarry-crust.png) |
+| Quarry country | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 41 | [shot](docs/media/certification/ow-quarry-abyss.png) |
+| Bonetown (r6c2) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 74 | [shot](docs/media/certification/ow-bonetown-crust.png) |
+| Bonetown | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 54 | [shot](docs/media/certification/ow-bonetown-abyss.png) |
+| Cryomire (r5c6) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 63 | [shot](docs/media/certification/ow-cryomire-crust.png) |
+| Cryomire | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 59 | [shot](docs/media/certification/ow-cryomire-abyss.png) |
+| Pyre ascent (r2c5) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 67 | [shot](docs/media/certification/ow-pyre-crust.png) |
+| Pyre ascent | abyss | ✅ | ✅ | ✅ | ✅ | ✅ | 47 | [shot](docs/media/certification/ow-pyre-abyss.png) |
 | Scarfield (gate screens) | crust | ✅ | ✅ | ✅ | ✅ | ✅ | 73 | [w-gate](docs/media/w-gate/) |
 
 Fix-forward rule: small fixes land inline (logged in BUILD_LOG); anything
