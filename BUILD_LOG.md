@@ -482,7 +482,7 @@ New specs `music` (309 assertions) and `game-feel-visuals`; probes
 `synth.channelGain(channel)`, so game-side persistent buses honour the same
 volume settings.
 
-### Session 13 — the renderer pass, all six tickets (suite 2575 → 2932)
+### Session 13 — the renderer pass, all six tickets (suite 2575 → 2966)
 
 All six tickets of `docs/VISUAL_PLAN.md` implemented in order. The plan had been
 written for another agent to pick up cold; the owner asked for it to be built
@@ -572,6 +572,11 @@ New probes: `contrast-probe`, `shadow-census`, `env-probe`, `trim-cost`,
   verbs (vial, dust, beat cycle, mute) are asserted to stay unmapped rather
   than have a button invented for them.
 
+- **Levels declare their `space`** (`'open'` | `'enclosed'`) in the registry
+  instead of the floor being picked by `id.startsWith('beat-')` — a guess
+  about naming that would have handed the lax floor to any dungeon named
+  differently. Default is the STRICT floor, so forgetting the field makes a
+  level harder to pass, never easier.
 - **The gate sweeps the overworld now** (8 regions x 2 mirror states, the
   same screens the captures shoot) instead of sampling one start screen —
   the hole that hid both findings above. That sweep also showed the

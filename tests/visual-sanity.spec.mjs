@@ -39,9 +39,18 @@ const LUM_BANDS = {
 // band and fails these floors).
 const CONTRAST_FLOORS = { dungeon: 60, open: 10 };
 
-/** Dungeons are walled rooms; the overworld and the sandbox are open ground. */
-const contrastFloorFor = (id) => (String(id).startsWith('beat-')
-    ? CONTRAST_FLOORS.dungeon : CONTRAST_FLOORS.open);
+/**
+ * Which floor a level answers to, from the level's own `space` declaration.
+ *
+ * This was `id.startsWith('beat-')` for exactly one commit, which is a guess
+ * about a naming convention rather than a fact about the level — a dungeon
+ * added under any other name would have silently received the lax open-ground
+ * floor and been free to go flat. `space` is declared in `levels/registry.js`
+ * and defaults to the STRICTER floor, so forgetting it makes a level harder to
+ * pass rather than easier.
+ */
+const contrastFloorFor = (space) => (space === 'open'
+    ? CONTRAST_FLOORS.open : CONTRAST_FLOORS.dungeon);
 /**
  * One representative screen per overworld region, computed from `regionOf`
  * across the 7×7 grid and pinned so a run always measures the same places.
@@ -157,6 +166,7 @@ export async function run(t) {
                     rig.position.z = p0.z;
                     out.push({
                         id: meta.id,
+                        space: meta.space || 'enclosed',
                         mood: s.game.level.mood || meta.mood || 'crust',
                         lum,
                         contrast,
@@ -186,7 +196,7 @@ export async function run(t) {
             const [lo, hi] = LUM_BANDS[r.mood] || LUM_BANDS.crust;
             t.ok(`${r.id} luminance in band`, r.lum >= lo && r.lum <= hi,
                 `lum=${r.lum.toFixed(1)} band=[${lo},${hi}] mood=${r.mood}`);
-            const floor = contrastFloorFor(r.id);
+            const floor = contrastFloorFor(r.space);
             t.ok(`${r.id} clears the contrast floor`, r.contrast >= floor,
                 `contrast=${r.contrast} floor=${floor} (centre-crop p90−p10)`);
 

@@ -137,6 +137,19 @@ box, not as a place.
   while keeping the contrast. That trade is what the contrast floor exists to
   arbitrate, and this is the first time it did.
 
+### A level says what kind of space it is, instead of being guessed at
+
+The two contrast floors below were selected with `id.startsWith('beat-')`. That
+is a guess about a naming convention, not a fact about the level: **a dungeon
+added under any other name would have silently received the lax open-ground
+floor** and been free to go flat forever. It survived exactly one commit.
+
+Levels declare `space: 'open'` in `levels/registry.js` now, and the default is
+`'enclosed'` — the *stricter* floor — so forgetting the field makes a level
+harder to pass rather than easier. A default that fails safe is the whole reason
+this is data rather than a guess. `registry.spec.mjs` checks that only the two
+genuinely open levels claim it, and that the default is the strict one.
+
 ### The gate now sweeps the overworld, and has two contrast floors
 
 Having just proved the overworld's eight regions differ by 2.4×, the gate was

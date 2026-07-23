@@ -20,10 +20,25 @@ import { createOverworld } from '../overworld/overworld.js';
 import { TEST_SCREENS } from '../overworld/screens.js';
 import { WORLD7 } from '../overworld/world7.js';
 
+/**
+ * `space` declares what KIND of place a level is, for anything that has to hold
+ * open ground and walled rooms to different standards.
+ *
+ * It exists because the certification gate's contrast floor was first written
+ * as `id.startsWith('beat-')`. That is a guess about a naming convention, not a
+ * fact about the level: a dungeon added under any other name would silently
+ * receive the lax open-ground floor and could go flat without failing. Absent,
+ * a level is `'enclosed'` — the stricter of the two — so forgetting the field
+ * makes a level harder to pass, never easier.
+ *
+ * `'open'` means no walls around the play space and no ceiling over it, so the
+ * key light cannot cast across it and the frame genuinely cannot reach a walled
+ * room's contrast (measured: open 12-16, dungeon rooms 70-172).
+ */
 export const LEVELS = [
-    { id: 'sandbox-combat', name: 'Combat Sandbox', load: loadSandboxCombat, mood: 'crust', bossId: null },
+    { id: 'sandbox-combat', name: 'Combat Sandbox', load: loadSandboxCombat, mood: 'crust', bossId: null, space: 'open' },
     // C1: the connected overworld — 7×7 screens, both mirror states
-    { id: 'overworld', name: 'The Scarred Crust', load: (ctx) => createOverworld(ctx, WORLD7, { levelId: 'overworld' }), mood: 'crust', bossId: null },
+    { id: 'overworld', name: 'The Scarred Crust', load: (ctx) => createOverworld(ctx, WORLD7, { levelId: 'overworld' }), mood: 'crust', bossId: null, space: 'open' },
     { id: 'beat-01-crypt', name: '01 Crypt Breach', load: loadBeat01, mood: 'crust', bossId: 'crypt_warden' },
     { id: 'beat-02-spindle', name: '02 Eastern Spindle', load: loadBeat02, mood: 'crust', bossId: 'tri_compiler' },
     { id: 'beat-03-sink', name: '03 Duval Sink', load: loadBeat03, mood: 'crust', bossId: 'sand_spur' },
